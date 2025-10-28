@@ -39,7 +39,7 @@ git push -u origin main
 
 ### 4. Vercel でのデプロイ
 
-#### 方法1: vercel-env.json をインポート
+#### 方法 1: vercel-env.json をインポート
 
 1. [Vercel](https://vercel.com)にアクセス
 2. GitHub アカウントでログイン
@@ -52,17 +52,17 @@ git push -u origin main
    - すべての環境変数が自動で設定されます
 6. 「Deploy」をクリック
 
-#### 方法2: 手動で環境変数を設定
+#### 方法 2: 手動で環境変数を設定
 
 1. [Vercel](https://vercel.com)にアクセス
 2. GitHub アカウントでログイン
 3. 「Add New Project」をクリック
 4. `research-ai-tool-improved`リポジトリを選択
-5. 環境変数を設定：
-   - `GEMINI_API_KEY`: あなたの Gemini API キー
-   - `NEXT_PUBLIC_SUPABASE_URL`: あなたの Supabase URL
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: あなたの Supabase 匿名キー
-   - `SUPABASE_SERVICE_ROLE_KEY`: あなたの Supabase サービスロールキー
+5. 環境変数を設定（`ENV_VARIABLES.md`を参照）：
+   - `GEMINI_API_KEY`: AIzaSyAs1RybWgIi6z1mT6VC25Ss5G-K25mxVN0
+   - `NEXT_PUBLIC_SUPABASE_URL`: https://ryywrixjbqcltwujwbdd.supabase.co
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: （ENV_VARIABLES.mdを参照）
+   - `SUPABASE_SERVICE_ROLE_KEY`: （ENV_VARIABLES.mdを参照）
 6. 「Deploy」をクリック
 
 ### 5. デプロイ後の確認
