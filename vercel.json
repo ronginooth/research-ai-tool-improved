@@ -3,9 +3,5 @@
   "buildCommand": "npm run build",
   "devCommand": "npm run dev",
   "installCommand": "npm install",
-  "framework": "nextjs",
-  "regions": ["nrt1"],
-  "env": {
-    "NODE_ENV": "production"
-  }
+  "framework": "nextjs"
 }
