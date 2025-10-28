@@ -51,7 +51,7 @@ Markdown形式で出力し、以下の構造を含めてください：
 このドラフトは実際の論文執筆の基盤として使用されます。
 `;
 
-    let draft: string;
+    let draft: string = "";
 
     // Gemini APIを使用してドラフトを生成
     if (
@@ -88,7 +88,7 @@ ${draftPrompt}`,
 
       if (!geminiResponse.ok) {
         console.log("Gemini API request failed, using mock data");
-        // フォールバック: モックデータを生成
+        draft = "";
       } else {
         const geminiData = await geminiResponse.json();
         draft = geminiData.candidates[0].content.parts[0].text;
@@ -96,7 +96,7 @@ ${draftPrompt}`,
     }
 
     // モックデータまたはフォールバック時の処理
-    if (!draft) {
+    if (!draft || draft === "") {
       // デモ用のモックデータ
       if (draftType === "introduction") {
         draft = `# Introduction
