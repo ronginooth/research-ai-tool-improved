@@ -61,8 +61,8 @@ git push -u origin main
 5. 環境変数を設定（`ENV_VARIABLES.md`を参照）：
    - `GEMINI_API_KEY`: AIzaSyAs1RybWgIi6z1mT6VC25Ss5G-K25mxVN0
    - `NEXT_PUBLIC_SUPABASE_URL`: https://ryywrixjbqcltwujwbdd.supabase.co
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: （ENV_VARIABLES.mdを参照）
-   - `SUPABASE_SERVICE_ROLE_KEY`: （ENV_VARIABLES.mdを参照）
+   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: （ENV_VARIABLES.md を参照）
+   - `SUPABASE_SERVICE_ROLE_KEY`: （ENV_VARIABLES.md を参照）
 6. 「Deploy」をクリック
 
 ### 5. デプロイ後の確認

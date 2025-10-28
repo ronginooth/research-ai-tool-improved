@@ -35,6 +35,10 @@ server.log
 test-content.txt
 tmp_test.pdf
 
+# Environment files
+ENV_VARIABLES.md
+.env.local
+
 # Vercel
 .vercel
 
