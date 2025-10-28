@@ -112,10 +112,12 @@ export async function POST(request: NextRequest) {
       try {
         const relaxedOptions: SearchOptions = {
           ...searchOptions,
-          filters: searchOptions.filters ? {
-            ...searchOptions.filters,
-            minCitations: 0,
-          } : undefined,
+          filters: searchOptions.filters
+            ? {
+                ...searchOptions.filters,
+                minCitations: 0,
+              }
+            : undefined,
         };
         const fallbackQuery = buildWithCore(topic, plan?.coreKeywords);
         papers = await advancedSearchEngine.basicSearch(
