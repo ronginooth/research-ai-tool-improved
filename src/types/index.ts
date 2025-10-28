@@ -92,26 +92,26 @@ export interface SearchPlan {
 
 export interface AdvancedSearchFilters {
   // 基本フィルター
-  dateRange: { start: string; end: string };
-  minCitations: number;
-  journalQuality: "Q1" | "Q2" | "Q3" | "Q4" | "all";
+  dateRange?: { start: string; end: string };
+  minCitations?: number;
+  journalQuality?: "Q1" | "Q2" | "Q3" | "Q4" | "all";
 
   // 高度フィルター
-  studyTypes: ("empirical" | "theoretical" | "review" | "meta-analysis")[];
-  methodologies: ("quantitative" | "qualitative" | "mixed")[];
-  disciplines: string[];
-  authors: string[];
-  institutions: string[];
-  fundingSources: string[];
+  studyTypes?: ("empirical" | "theoretical" | "review" | "meta-analysis")[];
+  methodologies?: ("quantitative" | "qualitative" | "mixed")[];
+  disciplines?: string[];
+  authors?: string[];
+  institutions?: string[];
+  fundingSources?: string[];
 
   // ユーザーライブラリフィルター
-  includeUserLibrary: boolean;
-  excludeUserLibrary: boolean;
-  specificCollections: string[];
+  includeUserLibrary?: boolean;
+  excludeUserLibrary?: boolean;
+  specificCollections?: string[];
 
   // データベース選択
-  databases: string[];
-  internetFilter: "all" | "gov" | "edu";
+  databases?: string[];
+  internetFilter?: "all" | "gov" | "edu";
 }
 
 // レビュー関連
