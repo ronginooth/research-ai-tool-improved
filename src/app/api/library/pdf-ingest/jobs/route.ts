@@ -12,6 +12,13 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "paperId は必須です" }, { status: 400 });
   }
 
+  if (!supabaseAdmin) {
+    return NextResponse.json(
+      { error: "Supabase is not configured" },
+      { status: 500 }
+    );
+  }
+
   const { data, error } = await supabaseAdmin
     .from("library_pdf_processing_jobs")
     .select("id, status, created_at, started_at, finished_at, error_message")
