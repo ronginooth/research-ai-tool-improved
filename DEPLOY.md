@@ -39,6 +39,21 @@ git push -u origin main
 
 ### 4. Vercel でのデプロイ
 
+#### 方法1: vercel-env.json をインポート
+
+1. [Vercel](https://vercel.com)にアクセス
+2. GitHub アカウントでログイン
+3. 「Add New Project」をクリック
+4. `research-ai-tool-improved`リポジトリを選択
+5. 環境変数のインポート:
+   - 「Environment Variables」セクションを開く
+   - 「Import」ボタンをクリック
+   - `vercel-env.json` ファイルを選択
+   - すべての環境変数が自動で設定されます
+6. 「Deploy」をクリック
+
+#### 方法2: 手動で環境変数を設定
+
 1. [Vercel](https://vercel.com)にアクセス
 2. GitHub アカウントでログイン
 3. 「Add New Project」をクリック
