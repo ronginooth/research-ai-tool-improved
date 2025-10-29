@@ -14,6 +14,13 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    if (!supabaseAdmin) {
+      return NextResponse.json(
+        { error: "Supabase is not configured" },
+        { status: 500 }
+      );
+    }
+
     // 論文の基本情報を取得
     const { data: paper, error: paperError } = await supabaseAdmin
       .from("user_library")

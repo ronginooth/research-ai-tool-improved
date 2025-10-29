@@ -18,6 +18,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (!supabaseAdmin) {
+      return NextResponse.json(
+        { error: "Supabase is not configured" },
+        { status: 500 }
+      );
+    }
+
     // すべての論文を取得（サムネイルの有無に関係なく）
     const { data: papers, error: fetchError } = await supabaseAdmin
       .from("user_library")
