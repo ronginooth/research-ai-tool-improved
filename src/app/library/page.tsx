@@ -16,9 +16,7 @@ import {
   Tag,
   Plus,
 } from "lucide-react";
-import PaperDetailPanel, {
-  LibraryPaper,
-} from "@/components/library/PaperDetailPanel";
+import PaperDetailPanel from "@/components/library/PaperDetailPanel";
 import TagManager from "@/components/library/TagManager";
 import ResizableTable from "@/components/library/ResizableTable";
 import ReviewCard from "@/components/library/ReviewCard";
@@ -42,7 +40,7 @@ const DEMO_USER_ID = "demo-user-123";
 
 export default function LibraryPage() {
   const searchParams = useSearchParams();
-  const [papers, setPapers] = useState<LibraryPaper[]>([]);
+  const [papers, setPapers] = useState<Paper[]>([]);
   const [reviews, setReviews] = useState<Review[]>([
     {
       id: "test-review-1",
@@ -132,7 +130,7 @@ KIF6遺伝子多型は心血管リスクの重要な予測因子として注目�
   const [tab, setTab] = useState<"papers" | "reviews">("papers");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedPaper, setSelectedPaper] = useState<LibraryPaper | null>(null);
+  const [selectedPaper, setSelectedPaper] = useState<Paper | null>(null);
   const [highlights, setHighlights] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [showFilters, setShowFilters] = useState(false);
@@ -291,7 +289,7 @@ KIF6遺伝子多型は心血管リスクの重要な予測因子として注目�
     return venues;
   }, [papers]);
 
-  const handleSelectPaper = (paper: LibraryPaper) => {
+  const handleSelectPaper = (paper: Paper) => {
     setSelectedPaper(paper);
     setHighlights(buildHighlights(paper));
   };
@@ -433,7 +431,7 @@ KIF6遺伝子多型は心血管リスクの重要な予測因子として注目�
   };
 
   // カードビューのレンダリング関数
-  const renderPaperCard = (paper: LibraryPaper, isBoard = false) => {
+  const renderPaperCard = (paper: Paper, isBoard = false) => {
     const hasAiSummary = Boolean(paper.aiSummary ?? (paper as any)?.ai_summary);
     const hasPreview = Boolean(
       paper.pdfUrl ??
@@ -942,7 +940,7 @@ KIF6遺伝子多型は心血管リスクの重要な予測因子として注目�
   );
 }
 
-function buildHighlights(paper: LibraryPaper): string[] {
+function buildHighlights(paper: Paper): string[] {
   const results: string[] = [];
   if (paper.abstract) {
     const sentences = paper.abstract
