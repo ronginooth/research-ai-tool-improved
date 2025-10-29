@@ -53,10 +53,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    let pdfUrl = paper.pdfUrl ?? (paper as any)?.pdf_url ?? null;
-    let htmlUrl = paper.htmlUrl ?? (paper as any)?.html_url ?? null;
+    let pdfUrl = (paper as any)?.pdfUrl ?? (paper as any)?.pdf_url ?? null;
+    let htmlUrl = (paper as any)?.htmlUrl ?? (paper as any)?.html_url ?? null;
     let thumbnailUrl =
-      paper.thumbnailUrl ?? (paper as any)?.thumbnail_url ?? null;
+      (paper as any)?.thumbnailUrl ?? (paper as any)?.thumbnail_url ?? null;
     const doi = paper.doi ?? (paper as any)?.doi ?? null;
 
     if ((!pdfUrl || !htmlUrl || !thumbnailUrl) && doi) {
