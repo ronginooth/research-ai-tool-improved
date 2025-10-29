@@ -16,6 +16,13 @@ export async function DELETE(
       );
     }
 
+    if (!supabaseAdmin) {
+      return NextResponse.json(
+        { success: false, error: "Supabase is not configured" },
+        { status: 500 }
+      );
+    }
+
     const { error } = await supabaseAdmin
       .from("reviews")
       .delete()

@@ -14,6 +14,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (!supabaseAdmin) {
+      return NextResponse.json(
+        { error: "データベース接続エラー" },
+        { status: 500 }
+      );
+    }
+
     // 既存のタグを取得
     const { data: existingPaper } = await supabaseAdmin
       .from("user_library")
@@ -82,6 +89,13 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json(
         { error: "論文IDとタグが必要です" },
         { status: 400 }
+      );
+    }
+
+    if (!supabaseAdmin) {
+      return NextResponse.json(
+        { error: "データベース接続エラー" },
+        { status: 500 }
       );
     }
 
