@@ -169,7 +169,10 @@ export async function POST(request: NextRequest) {
             );
           }
         } catch (insightError) {
-          if (insightError instanceof Error && insightError.name === "AbortError") {
+          if (
+            insightError instanceof Error &&
+            insightError.name === "AbortError"
+          ) {
             console.warn(
               `AI insights generation timed out for paper ${data.id}`
             );
@@ -326,6 +329,13 @@ export async function DELETE(request: NextRequest) {
 
     if (!paperId) {
       return NextResponse.json({ error: "論文IDが必要です" }, { status: 400 });
+    }
+
+    if (!supabaseAdmin) {
+      return NextResponse.json(
+        { error: "Supabase is not configured" },
+        { status: 500 }
+      );
     }
 
     const { error } = await supabaseAdmin
