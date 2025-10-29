@@ -7,6 +7,13 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get("userId") || "demo-user-123";
 
+    if (!supabase) {
+      return NextResponse.json(
+        { success: false, error: "Supabase is not configured" },
+        { status: 500 }
+      );
+    }
+
     const { data, error } = await supabase
       .from("reviews")
       .select("*")
