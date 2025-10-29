@@ -22,10 +22,10 @@ import ResizableTable from "@/components/library/ResizableTable";
 import ReviewCard from "@/components/library/ReviewCard";
 import {
   PaperAIInsights,
-  CopilotChatResponse,
-  CopilotReference,
-  CopilotParagraph,
-  CopilotExternalReference,
+  InsightsChatResponse,
+  InsightsChatReference,
+  InsightsChatParagraph,
+  InsightsChatExternalReference,
 } from "@/types";
 
 interface Review {
