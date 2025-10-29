@@ -23,10 +23,7 @@ export async function DELETE(
       );
     }
 
-    const { error } = await supabaseAdmin
-      .from("reviews")
-      .delete()
-      .eq("id", id);
+    const { error } = await supabaseAdmin.from("reviews").delete().eq("id", id);
 
     if (error) throw error;
 
@@ -34,7 +31,10 @@ export async function DELETE(
   } catch (error: any) {
     console.error("Review delete error:", error);
     return NextResponse.json(
-      { success: false, error: error?.message || "レビューの削除に失敗しました" },
+      {
+        success: false,
+        error: error?.message || "レビューの削除に失敗しました",
+      },
       { status: 500 }
     );
   }

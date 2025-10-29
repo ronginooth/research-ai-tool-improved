@@ -18,7 +18,10 @@ export async function GET(request: NextRequest) {
   } catch (error: any) {
     console.error("Reviews fetch error:", error);
     return NextResponse.json(
-      { success: false, error: error?.message || "レビューの取得に失敗しました" },
+      {
+        success: false,
+        error: error?.message || "レビューの取得に失敗しました",
+      },
       { status: 500 }
     );
   }
@@ -69,7 +72,10 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error("Review save error:", error);
     return NextResponse.json(
-      { success: false, error: error?.message || "レビューの保存に失敗しました" },
+      {
+        success: false,
+        error: error?.message || "レビューの保存に失敗しました",
+      },
       { status: 500 }
     );
   }
