@@ -52,6 +52,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (!supabaseAdmin) {
+      return NextResponse.json(
+        { error: "Supabase is not configured" },
+        { status: 500 }
+      );
+    }
+
     const { data, error } = await supabaseAdmin
       .from("user_library")
       .update(updates)
