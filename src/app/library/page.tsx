@@ -21,6 +21,7 @@ import TagManager from "@/components/library/TagManager";
 import ResizableTable from "@/components/library/ResizableTable";
 import ReviewCard from "@/components/library/ReviewCard";
 import {
+  Paper,
   PaperAIInsights,
   InsightsChatResponse,
   InsightsChatReference,
