@@ -169,7 +169,7 @@ export async function POST(request: NextRequest) {
             );
           }
         } catch (insightError) {
-          if (insightError.name === "AbortError") {
+          if (insightError instanceof Error && insightError.name === "AbortError") {
             console.warn(
               `AI insights generation timed out for paper ${data.id}`
             );
