@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
       .filter((dirent) => dirent.isDirectory())
       .map((dirent) => {
         const projectPath = path.join(basePath, dirent.name);
-        const projectInfo = {
+        const projectInfo: any = {
           name: dirent.name,
           path: projectPath,
           writingPath: path.join(projectPath, "05_Writing"),
