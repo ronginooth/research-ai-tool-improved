@@ -918,18 +918,25 @@ KIF6遺伝子多型は心血管リスクの重要な予測因子として注目�
 
         {selectedPaper && (
           <PaperDetailPanel
-            paper={{
-              ...selectedPaper,
-              userId: DEMO_USER_ID,
-              pdfUrl:
-                selectedPaper.pdfUrl ?? (selectedPaper as any)?.pdf_url ?? null,
-              htmlUrl:
-                selectedPaper.htmlUrl ??
-                (selectedPaper as any)?.html_url ??
-                null,
-              notes: buildNoteFromHighlights(highlights),
-              createdAt: (selectedPaper as any)?.createdAt ?? (selectedPaper as any)?.created_at ?? new Date().toISOString(),
-            } as any}
+            paper={
+              {
+                ...selectedPaper,
+                userId: DEMO_USER_ID,
+                pdfUrl:
+                  selectedPaper.pdfUrl ??
+                  (selectedPaper as any)?.pdf_url ??
+                  null,
+                htmlUrl:
+                  selectedPaper.htmlUrl ??
+                  (selectedPaper as any)?.html_url ??
+                  null,
+                notes: buildNoteFromHighlights(highlights),
+                createdAt:
+                  (selectedPaper as any)?.createdAt ??
+                  (selectedPaper as any)?.created_at ??
+                  new Date().toISOString(),
+              } as any
+            }
             onClose={() => setSelectedPaper(null)}
             onSaveSummary={(paperId, insights) => {
               handleSaveSummary(paperId, insights);
