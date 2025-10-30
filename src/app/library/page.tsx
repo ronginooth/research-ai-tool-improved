@@ -973,8 +973,8 @@ function buildHighlights(paper: Paper): string[] {
   if (paper.venue) {
     results.push(`掲載誌: ${paper.venue}`);
   }
-  if (paper.citation_count ?? paper.citationCount) {
-    const count = paper.citation_count ?? paper.citationCount;
+  if ((paper as any)?.citation_count ?? paper.citationCount) {
+    const count = (paper as any)?.citation_count ?? paper.citationCount;
     results.push(`引用数: ${count?.toLocaleString?.("ja-JP") ?? count}`);
   }
   if (paper.year) {
