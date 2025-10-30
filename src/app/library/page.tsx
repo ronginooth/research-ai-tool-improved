@@ -437,7 +437,9 @@ KIF6遺伝子多型は心血管リスクの重要な予測因子として注目�
 
   // カードビューのレンダリング関数
   const renderPaperCard = (paper: Paper, isBoard = false) => {
-    const hasAiSummary = Boolean((paper as any)?.aiSummary ?? (paper as any)?.ai_summary);
+    const hasAiSummary = Boolean(
+      (paper as any)?.aiSummary ?? (paper as any)?.ai_summary
+    );
     const hasPreview = Boolean(
       (paper as any)?.pdfUrl ??
         (paper as any)?.pdf_url ??
@@ -508,9 +510,9 @@ KIF6遺伝子多型は心血管リスクの重要な予測因子として注目�
         <div className="flex flex-wrap gap-2 text-xs text-slate-500">
           <span>
             引用数:{" "}
-            {(paper.citation_count ?? paper.citationCount ?? "不明").toString()}
+            {((paper as any)?.citation_count ?? paper.citationCount ?? "不明").toString()}
           </span>
-          {paper.created_at ?? (paper as any)?.createdAt ? (
+          {(paper as any)?.created_at ?? (paper as any)?.createdAt ? (
             <span>
               保存日:{" "}
               {new Date(
