@@ -439,9 +439,9 @@ KIF6遺伝子多型は心血管リスクの重要な予測因子として注目�
   const renderPaperCard = (paper: Paper, isBoard = false) => {
     const hasAiSummary = Boolean((paper as any)?.aiSummary ?? (paper as any)?.ai_summary);
     const hasPreview = Boolean(
-      paper.pdfUrl ??
+      (paper as any)?.pdfUrl ??
         (paper as any)?.pdf_url ??
-        paper.htmlUrl ??
+        (paper as any)?.htmlUrl ??
         (paper as any)?.html_url
     );
     const thumbnailUrl = (paper as any)?.notes;
