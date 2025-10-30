@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { LibraryPaper } from "@/components/library/PaperDetailPanel";
+import type { LibraryPaper } from "@/types";
 
 interface MarkdownRendererProps {
   content: string;
