@@ -164,7 +164,7 @@ export default function SearchPage() {
       } else if (data.error) {
         toast.error(data.error);
       } else {
-        toast.info("検索結果が見つかりませんでした");
+        toast("検索結果が見つかりませんでした");
       }
     } catch (error) {
       console.error("Search error:", error);
