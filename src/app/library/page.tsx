@@ -510,13 +510,18 @@ KIF6遺伝子多型は心血管リスクの重要な予測因子として注目�
         <div className="flex flex-wrap gap-2 text-xs text-slate-500">
           <span>
             引用数:{" "}
-            {((paper as any)?.citation_count ?? paper.citationCount ?? "不明").toString()}
+            {(
+              (paper as any)?.citation_count ??
+              paper.citationCount ??
+              "不明"
+            ).toString()}
           </span>
           {(paper as any)?.created_at ?? (paper as any)?.createdAt ? (
             <span>
               保存日:{" "}
               {new Date(
-                ((paper as any)?.created_at ?? (paper as any)?.createdAt) as string
+                ((paper as any)?.created_at ??
+                  (paper as any)?.createdAt) as string
               ).toLocaleDateString("ja-JP")}
             </span>
           ) : null}
@@ -915,6 +920,7 @@ KIF6遺伝子多型は心血管リスクの重要な予測因子として注目�
           <PaperDetailPanel
             paper={{
               ...selectedPaper,
+              userId: DEMO_USER_ID,
               pdfUrl:
                 selectedPaper.pdfUrl ?? (selectedPaper as any)?.pdf_url ?? null,
               htmlUrl:
@@ -922,7 +928,8 @@ KIF6遺伝子多型は心血管リスクの重要な予測因子として注目�
                 (selectedPaper as any)?.html_url ??
                 null,
               notes: buildNoteFromHighlights(highlights),
-            }}
+              createdAt: (selectedPaper as any)?.createdAt ?? (selectedPaper as any)?.created_at ?? new Date().toISOString(),
+            } as any}
             onClose={() => setSelectedPaper(null)}
             onSaveSummary={(paperId, insights) => {
               handleSaveSummary(paperId, insights);
