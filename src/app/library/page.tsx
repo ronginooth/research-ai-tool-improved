@@ -923,11 +923,11 @@ KIF6遺伝子多型は心血管リスクの重要な予測因子として注目�
                 ...selectedPaper,
                 userId: DEMO_USER_ID,
                 pdfUrl:
-                  selectedPaper.pdfUrl ??
+                  (selectedPaper as any)?.pdfUrl ??
                   (selectedPaper as any)?.pdf_url ??
                   null,
                 htmlUrl:
-                  selectedPaper.htmlUrl ??
+                  (selectedPaper as any)?.htmlUrl ??
                   (selectedPaper as any)?.html_url ??
                   null,
                 notes: buildNoteFromHighlights(highlights),
