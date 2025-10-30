@@ -30,6 +30,7 @@ interface Paper {
   citationCount: number;
   venue: string;
   source?: string;
+  doi?: string;
 }
 
 interface SearchResult {
