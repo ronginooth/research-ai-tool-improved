@@ -187,7 +187,7 @@ export default function CitationMapVisualization({
         if (response.ok) {
           const data = await response.json();
           if (data.success && data.papers) {
-            const paperIds = new Set(data.papers.map((p: any) => p.id));
+            const paperIds = new Set<string>(data.papers.map((p: any) => p.id as string));
             setLibraryPapers(paperIds);
           }
         }
@@ -479,7 +479,7 @@ export default function CitationMapVisualization({
           "text"
         );
         text.setAttribute("x", pos.x.toString());
-        text.setAttribute("y", pos.y + node.size + 15);
+        text.setAttribute("y", (pos.y + node.size + 15).toString());
         text.setAttribute("text-anchor", "middle");
         text.setAttribute("font-size", "9");
         text.setAttribute("fill", "#374151");

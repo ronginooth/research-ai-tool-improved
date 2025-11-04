@@ -422,7 +422,7 @@ export default function ReviewForm({
                 <div className="space-y-2 max-h-48 overflow-y-auto">
                   {libraryPapers.map((libraryPaper) => (
                     <div
-                      key={libraryPaper.paper_id || libraryPaper.id}
+                      key={(libraryPaper as any)?.paper_id || libraryPaper.id}
                       className="flex items-start gap-3 p-3 border border-gray-200 rounded-md hover:bg-gray-50"
                     >
                       <div className="flex-1 min-w-0">
@@ -443,14 +443,14 @@ export default function ReviewForm({
                         disabled={papers.some(
                           (p) =>
                             p.paperId ===
-                            (libraryPaper.paper_id || libraryPaper.id)
+                            ((libraryPaper as any)?.paper_id || libraryPaper.id)
                         )}
                         className="px-3 py-1 text-xs bg-pink-500 text-white rounded hover:bg-pink-600 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {papers.some(
                           (p) =>
                             p.paperId ===
-                            (libraryPaper.paper_id || libraryPaper.id)
+                            ((libraryPaper as any)?.paper_id || libraryPaper.id)
                         )
                           ? "追加済み"
                           : "追加"}

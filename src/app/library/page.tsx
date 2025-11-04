@@ -22,6 +22,7 @@ import ResizableTable from "@/components/library/ResizableTable";
 import ReviewCard from "@/components/library/ReviewCard";
 import {
   Paper,
+  LibraryPaper,
   PaperAIInsights,
   InsightsChatResponse,
   InsightsChatReference,
@@ -41,7 +42,7 @@ const DEMO_USER_ID = "demo-user-123";
 
 export default function LibraryPage() {
   const searchParams = useSearchParams();
-  const [papers, setPapers] = useState<Paper[]>([]);
+  const [papers, setPapers] = useState<(Paper | LibraryPaper)[]>([]);
   const [reviews, setReviews] = useState<Review[]>([
     {
       id: "test-review-1",
@@ -131,7 +132,7 @@ KIF6遺伝子多型は心血管リスクの重要な予測因子として注目�
   const [tab, setTab] = useState<"papers" | "reviews">("papers");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedPaper, setSelectedPaper] = useState<Paper | null>(null);
+  const [selectedPaper, setSelectedPaper] = useState<Paper | LibraryPaper | null>(null);
   const [highlights, setHighlights] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [showFilters, setShowFilters] = useState(false);
@@ -292,7 +293,7 @@ KIF6遺伝子多型は心血管リスクの重要な予測因子として注目�
     return venues;
   }, [papers]);
 
-  const handleSelectPaper = (paper: Paper) => {
+  const handleSelectPaper = (paper: Paper | LibraryPaper) => {
     setSelectedPaper(paper);
     setHighlights(buildHighlights(paper));
   };
@@ -436,7 +437,7 @@ KIF6遺伝子多型は心血管リスクの重要な予測因子として注目�
   };
 
   // カードビューのレンダリング関数
-  const renderPaperCard = (paper: Paper, isBoard = false) => {
+  const renderPaperCard = (paper: Paper | LibraryPaper, isBoard = false) => {
     const hasAiSummary = Boolean(
       (paper as any)?.aiSummary ?? (paper as any)?.ai_summary
     );
@@ -961,7 +962,7 @@ KIF6遺伝子多型は心血管リスクの重要な予測因子として注目�
   );
 }
 
-function buildHighlights(paper: Paper): string[] {
+function buildHighlights(paper: Paper | LibraryPaper): string[] {
   const results: string[] = [];
   if (paper.abstract) {
     const sentences = paper.abstract

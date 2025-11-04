@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { LibraryPaper } from "@/components/library/PaperDetailPanel";
+import type { LibraryPaper, Paper } from "@/types";
 import MarkdownRenderer from "@/components/library/MarkdownRenderer";
 import {
   BookOpen,
@@ -21,11 +21,13 @@ interface Review {
   created_at?: string;
 }
 
+type ReviewCardPaper = Paper | LibraryPaper;
+
 interface ReviewCardProps {
   review: Review;
-  papers: LibraryPaper[];
-  onPaperClick?: (paper: LibraryPaper) => void;
-  onSaveToLibrary?: (paper: LibraryPaper) => Promise<void>;
+  papers: ReviewCardPaper[];
+  onPaperClick?: (paper: ReviewCardPaper) => void;
+  onSaveToLibrary?: (paper: ReviewCardPaper) => Promise<void>;
   isPaperInLibrary?: (paperId: string) => boolean;
 }
 
@@ -40,10 +42,10 @@ export default function ReviewCard({
   const [savingPapers, setSavingPapers] = useState<Set<string>>(new Set());
 
   // レビューの内容から参照論文を抽出する関数
-  const extractReferencedPapers = (content: string): LibraryPaper[] => {
+  const extractReferencedPapers = (content: string): ReviewCardPaper[] => {
     if (!content) return [];
 
-    const referencedPapers: LibraryPaper[] = [];
+    const referencedPapers: ReviewCardPaper[] = [];
 
     // 番号引用 [1], [2], [3] などを検出
     const numberRefs = content.match(/\[(\d+)\]/g);
@@ -80,7 +82,7 @@ export default function ReviewCard({
 
   const referencedPapers = extractReferencedPapers(review.content || "");
 
-  const handleSavePaper = async (paper: LibraryPaper) => {
+  const handleSavePaper = async (paper: ReviewCardPaper) => {
     if (!onSaveToLibrary) return;
 
     setSavingPapers((prev) => new Set(prev).add(paper.id));
@@ -159,7 +161,12 @@ export default function ReviewCard({
             <MarkdownRenderer
               content={review.content || ""}
               papers={referencedPapers}
-              onPaperClick={onPaperClick}
+              onPaperClick={(paperId) => {
+                const paper = referencedPapers.find((p) => p.id === paperId);
+                if (paper && onPaperClick) {
+                  onPaperClick(paper);
+                }
+              }}
             />
           </div>
         ) : (
@@ -170,7 +177,12 @@ export default function ReviewCard({
                   review.content || "本文が保存されていません"
                 )}
                 papers={referencedPapers}
-                onPaperClick={onPaperClick}
+                onPaperClick={(paperId) => {
+                  const paper = referencedPapers.find((p) => p.id === paperId);
+                  if (paper && onPaperClick) {
+                    onPaperClick(paper);
+                  }
+                }}
               />
             </div>
           </div>

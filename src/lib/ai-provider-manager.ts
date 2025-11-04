@@ -1,4 +1,4 @@
-import { AIProvider, AIProviderConfig, Paper, ExtendedPaper } from "@/types";
+import { AIProvider, AIProviderConfig, Paper } from "@/types";
 import { openai } from "./openai";
 import { callGemini } from "./gemini";
 import { callGeminiEmbedding } from "./gemini";
@@ -293,7 +293,7 @@ ${index + 1}. ${paper.title}
    著者: ${paper.authors}
    年: ${paper.year}
    ジャーナル: ${paper.venue}
-   DOI: ${(paper as ExtendedPaper).doi ?? "不明"}
+   DOI: ${paper.doi ?? "不明"}
    要約: ${paper.abstract}
    引用数: ${paper.citationCount}
 `

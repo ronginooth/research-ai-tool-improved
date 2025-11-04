@@ -383,6 +383,7 @@ export class AdvancedSearchEngine {
     return papers.filter((paper) => {
       // 引用数フィルター
       if (
+        filters.minCitations !== undefined &&
         filters.minCitations > 0 &&
         (paper.citationCount || 0) < filters.minCitations
       ) {
@@ -391,13 +392,13 @@ export class AdvancedSearchEngine {
 
       // 年フィルター
       if (
-        filters.dateRange.start &&
+        filters.dateRange?.start &&
         paper.year < parseInt(filters.dateRange.start.split("-")[0])
       ) {
         return false;
       }
       if (
-        filters.dateRange.end &&
+        filters.dateRange?.end &&
         paper.year > parseInt(filters.dateRange.end.split("-")[0])
       ) {
         return false;

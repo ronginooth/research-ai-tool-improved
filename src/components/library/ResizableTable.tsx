@@ -1,12 +1,15 @@
 "use client";
 
 import React, { useState, useRef, useCallback, useEffect } from "react";
-import { LibraryPaper } from "@/components/library/PaperDetailPanel";
+import type { LibraryPaper, Paper } from "@/types";
 import TagManager from "@/components/library/TagManager";
 
+// ResizableTableで使用する最小限のプロパティを持つ型
+type TablePaper = Paper | LibraryPaper;
+
 interface ResizableTableProps {
-  papers: LibraryPaper[];
-  onSelectPaper: (paper: LibraryPaper) => void;
+  papers: TablePaper[];
+  onSelectPaper: (paper: TablePaper) => void;
   onAddTag: (paperId: string, tag: string) => void;
   onRemoveTag: (paperId: string, tag: string) => void;
   onCreateTag: (tag: string) => void;
@@ -80,8 +83,8 @@ export default function ResizableTable({
     }
   }, [isResizing, handleMouseMove, handleMouseUp]);
 
-  const renderPaperTableRow = (paper: LibraryPaper) => {
-    const hasAiSummary = Boolean(paper.aiSummary ?? (paper as any)?.ai_summary);
+  const renderPaperTableRow = (paper: TablePaper) => {
+    const hasAiSummary = Boolean((paper as any)?.aiSummary ?? (paper as any)?.ai_summary);
 
     return (
       <tr
@@ -122,7 +125,7 @@ export default function ResizableTable({
           className="p-3 text-sm text-slate-600"
           style={{ width: `${columnWidths.citationCount}%` }}
         >
-          {paper.citation_count ?? paper.citationCount ?? "-"}
+          {(paper as any)?.citation_count ?? paper.citationCount ?? "-"}
         </td>
         <td className="p-3" style={{ width: `${columnWidths.tags}%` }}>
           <TagManager

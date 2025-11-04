@@ -1,11 +1,19 @@
 "use client";
 
 import React from "react";
-import type { LibraryPaper } from "@/types";
+import type { LibraryPaper, Paper } from "@/types";
+
+// MarkdownRendererで使用する最小限のプロパティを持つ型
+type PaperReference = {
+  id: string;
+  title: string;
+  authors: string;
+  year: number;
+};
 
 interface MarkdownRendererProps {
   content: string;
-  papers: LibraryPaper[];
+  papers: PaperReference[];
   onPaperClick?: (paperId: string) => void;
 }
 
@@ -32,7 +40,7 @@ export default function MarkdownRenderer({
       author?: string;
       year?: string;
       title?: string;
-      paper?: LibraryPaper;
+      paper?: PaperReference;
     }> = [];
 
     patterns.forEach((pattern, index) => {

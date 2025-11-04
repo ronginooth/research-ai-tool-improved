@@ -87,6 +87,7 @@ async function tryUnpaywall(doi: string): Promise<ResolveResult | null> {
         pdfUrl,
         htmlUrl,
         sources,
+        thumbnailUrl: null,
       };
     }
 
@@ -144,7 +145,7 @@ async function tryCrossref(doi: string): Promise<ResolveResult | null> {
     }
 
     if (pdfUrl || htmlUrl) {
-      return { pdfUrl, htmlUrl, sources };
+      return { pdfUrl, htmlUrl, sources, thumbnailUrl: null };
     }
 
     return null;
