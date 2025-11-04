@@ -46,9 +46,12 @@ function cosineSimilarity(a: number[], b: number[]): number {
 }
 
 async function fetchLibraryRecord(paperId: string, userId: string) {
+  if (!supabaseAdmin) {
+    return null;
+  }
   const { data, error } = await supabaseAdmin
     .from("user_library")
-    .select("title, authors, url, html_url")
+    .select("title, authors, url, html_url, pdf_url")
     .eq("paper_id", paperId)
     .eq("user_id", userId)
     .maybeSingle();
@@ -91,7 +94,7 @@ async function ensureHtmlContexts(
         similarity: cosineSimilarity(questionEmbedding, embedding),
         excerpt: ctx.text.slice(0, 240),
         text: ctx.text,
-        chunkType: isFigureCaption(ctx.text) ? "figure_html" : "html_text",
+        chunkType: ctx.text.includes("<figure") || ctx.text.includes("<img") ? "figure_html" : "html_text",
       } as RankedContext);
     } catch (error) {
       console.warn("Embedding error", error);
@@ -106,6 +109,9 @@ async function fetchPdfContexts(
   questionEmbedding: number[],
   maxReferences: number
 ): Promise<RankedContext[]> {
+  if (!supabaseAdmin) {
+    return [];
+  }
   const { data: embeddingRows, error } = await supabaseAdmin
     .from("library_pdf_embeddings")
     .select("chunk_id, embedding")
@@ -362,7 +368,7 @@ export async function generateInsightsChatResponse(
     await ensurePaperEmbeddings({
       paperId,
       htmlUrl: htmlUrl ?? record?.html_url ?? record?.url ?? null,
-      pdfUrl: record?.pdf_url ?? null,
+      pdfUrl: (record as any)?.pdf_url ?? null,
       force: false,
     });
 
