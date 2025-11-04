@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase";
+import { getSupabaseForUser } from "@/lib/api-utils";
 import { Paper } from "@/types";
 import { resolveOpenAccessUrls } from "@/lib/doi-resolver";
 import { ingestPaperContent } from "@/lib/paper-ingest";
@@ -15,6 +15,9 @@ export async function POST(request: NextRequest) {
     const userId = body?.userId || "demo-user-123";
     const paper: Paper = body?.paper || body;
 
+    // ユーザー設定に基づいてSupabaseクライアントを取得
+    const { adminClient } = await getSupabaseForUser(request, userId);
+    
     const incomingId =
       (paper as any).id || paper.paperId || (paper as any)?.paper_id;
     if (!incomingId || !paper.title) {
@@ -25,7 +28,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Supabaseが利用できない場合はモックデータを返す
-    if (!supabaseAdmin) {
+    if (!adminClient) {
       return NextResponse.json({
         success: true,
         message: "論文が保存されました（モックモード）",
@@ -39,7 +42,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 既存の論文をチェック
-    const { data: existingPaper } = await supabaseAdmin
+    const { data: existingPaper } = await adminClient
       .from("user_library")
       .select("id")
       .eq("user_id", userId)
@@ -79,7 +82,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 論文を保存
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await adminClient
       .from("user_library")
       .insert({
         user_id: userId,
@@ -218,8 +221,11 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get("userId") || "demo-user-123";
 
+    // ユーザー設定に基づいてSupabaseクライアントを取得
+    const { adminClient } = await getSupabaseForUser(request, userId);
+
     // Supabaseが利用できない場合はモックデータを返す
-    if (!supabaseAdmin) {
+    if (!adminClient) {
       const mockPapers = [
         {
           id: "mock-1",
@@ -281,7 +287,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    let query = supabaseAdmin
+    let query = adminClient
       .from("user_library")
       .select("*")
       .eq("user_id", userId);
@@ -331,14 +337,17 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: "論文IDが必要です" }, { status: 400 });
     }
 
-    if (!supabaseAdmin) {
+    // ユーザー設定に基づいてSupabaseクライアントを取得
+    const { adminClient } = await getSupabaseForUser(request, userId);
+
+    if (!adminClient) {
       return NextResponse.json(
         { error: "Supabase is not configured" },
         { status: 500 }
       );
     }
 
-    const { error } = await supabaseAdmin
+    const { error } = await adminClient
       .from("user_library")
       .delete()
       .eq("user_id", userId)

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/hooks/useAuth";
 import {
   Search,
   FileText,
@@ -90,6 +91,7 @@ const TOOL_LINKS = [
 
 export default function Home() {
   const router = useRouter();
+  const { user, signOut } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [searchType, setSearchType] = useState<
     "auto" | "literature" | "deep-dive"
@@ -138,13 +140,33 @@ export default function Home() {
             </nav>
           </div>
           <div className="flex items-center gap-4">
-            <button
-              type="button"
-              className="rounded-full border border-slate-200 p-2 text-slate-500 hover:border-slate-300 hover:text-slate-700"
-            >
-              <Bell className="h-4 w-4" />
-            </button>
-            <div className="h-9 w-9 rounded-full bg-slate-300" />
+            {user ? (
+              <>
+                <Link
+                  href="/settings"
+                  className="rounded-full border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:border-slate-300 hover:text-slate-700"
+                >
+                  <Settings className="h-4 w-4 inline mr-1" />
+                  設定
+                </Link>
+                <button
+                  onClick={signOut}
+                  className="rounded-full border border-slate-200 px-3 py-1.5 text-sm text-slate-600 hover:border-slate-300 hover:text-slate-700"
+                >
+                  ログアウト
+                </button>
+                <div className="h-9 w-9 rounded-full bg-slate-300 flex items-center justify-center text-xs text-slate-600">
+                  {user.email?.charAt(0).toUpperCase() || "U"}
+                </div>
+              </>
+            ) : (
+              <Link
+                href="/auth"
+                className="rounded-full bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
+              >
+                ログイン
+              </Link>
+            )}
           </div>
         </div>
       </header>
