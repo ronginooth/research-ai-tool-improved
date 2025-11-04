@@ -1,85 +1,100 @@
-# デプロイ手順
+# デプロイガイド
 
-## Vercel へのデプロイ
+## Vercelへのデプロイ手順
 
-### 1. GitHub リポジトリの作成
-
-1. [GitHub](https://github.com)にアクセス
-2. 新しいリポジトリ `research-ai-tool-improved` を作成
-3. Public リポジトリに設定
-
-### 2. Personal Access Token の作成
-
-1. [GitHub](https://github.com) にログイン
-2. 右上のプロフィールアイコンをクリック
-3. 「Settings」を選択
-4. 左メニューから「Developer settings」を選択
-5. 左メニューから「Personal access tokens」を選択
-6. 「Tokens (classic)」を選択
-7. 「Generate new token」 > 「Generate new token (classic)」をクリック
-8. Note: `research-ai-tool` など適当な名前を入力
-9. Expiration: 90 days など適当な期限を設定
-10. Select scopes: `repo` にチェック（すべてのチェックボックスが選択されます）
-11. 「Generate token」をクリック
-12. **作成されたトークンをコピー（一度しか表示されません）**
-
-### 3. ローカルからのプッシュ
+### 1. GitHubにリポジトリをプッシュ
 
 ```bash
-cd /Users/makino/Documents/workspace_cursor/Research/Projects/AnswerThis/research-ai-tool-improved
-
-# リモートURLを設定
-git remote set-url origin https://github.com/ronginooth/research-ai-tool-improved.git
-
-# プッシュ（パスワードの代わりにPersonal Access Tokenを使用）
-git push -u origin main
-# Username: ronginooth
-# Password: <作成したPersonal Access Token>
+git push origin main
 ```
 
-### 4. Vercel でのデプロイ
+### 2. Vercelでプロジェクトをインポート
 
-#### 方法 1: vercel-env.json をインポート
+1. [Vercel](https://vercel.com) にログイン
+2. 「Add New...」→「Project」を選択
+3. GitHubリポジトリを選択
+4. プロジェクト設定を確認
 
-1. [Vercel](https://vercel.com)にアクセス
-2. GitHub アカウントでログイン
-3. 「Add New Project」をクリック
-4. `research-ai-tool-improved`リポジトリを選択
-5. 環境変数のインポート:
-   - 「Environment Variables」セクションを開く
-   - 「Import」ボタンをクリック
-   - `vercel-env.json` ファイルを選択
-   - すべての環境変数が自動で設定されます
-6. 「Deploy」をクリック
+### 3. 環境変数の設定
 
-#### 方法 2: 手動で環境変数を設定
+Vercelのプロジェクト設定で以下の環境変数を設定：
 
-1. [Vercel](https://vercel.com)にアクセス
-2. GitHub アカウントでログイン
-3. 「Add New Project」をクリック
-4. `research-ai-tool-improved`リポジトリを選択
-5. 環境変数を設定（`ENV_VARIABLES.md`を参照）：
-   - `GEMINI_API_KEY`: AIzaSyAs1RybWgIi6z1mT6VC25Ss5G-K25mxVN0
-   - `NEXT_PUBLIC_SUPABASE_URL`: https://ryywrixjbqcltwujwbdd.supabase.co
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`: （ENV_VARIABLES.md を参照）
-   - `SUPABASE_SERVICE_ROLE_KEY`: （ENV_VARIABLES.md を参照）
-6. 「Deploy」をクリック
+#### 必須環境変数
 
-### 5. デプロイ後の確認
-
-デプロイが完了したら、Vercel から提供される URL でアクセスできます。
-
-## 環境変数の設定
-
-Vercel ダッシュボードで以下の環境変数を設定してください：
-
+```env
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 ```
-GEMINI_API_KEY=<Your Gemini API Key>
-NEXT_PUBLIC_SUPABASE_URL=<Your Supabase URL>
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<Your Supabase Anon Key>
-SUPABASE_SERVICE_ROLE_KEY=<Your Supabase Service Role Key>
+
+#### オプション環境変数（AI機能を使用する場合）
+
+```env
+OPENAI_API_KEY=your_openai_api_key
+GEMINI_API_KEY=your_gemini_api_key
 ```
+
+#### アプリケーション設定
+
+```env
+NEXT_PUBLIC_APP_URL=https://your-app.vercel.app
+```
+
+### 4. デプロイ設定
+
+`vercel.json` が既に設定済みです：
+- フレームワーク: Next.js
+- ビルドコマンド: `npm run build`
+- API関数のタイムアウト: 60秒
+
+### 5. デプロイ実行
+
+GitHubにpushすると自動でデプロイが開始されます。
+
+または、Vercel CLIで手動デプロイ：
+
+```bash
+vercel --prod
+```
+
+## データベースセットアップ
+
+### Supabaseプロジェクトの作成
+
+1. [Supabase](https://supabase.com) でプロジェクトを作成
+2. SQL Editorで `database/schema.sql` を実行
+3. Authentication > Providers でGoogle OAuthを設定（必要に応じて）
+
+### 環境変数の取得
+
+Supabaseプロジェクトの設定から：
+- Project URL → `NEXT_PUBLIC_SUPABASE_URL`
+- API Settings > anon public → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- API Settings > service_role → `SUPABASE_SERVICE_ROLE_KEY`
+
+## デプロイ後の確認事項
+
+1. **ホームページ**: `/` が正常に表示されるか
+2. **認証**: `/auth` でログイン/登録ができるか
+3. **設定**: `/settings` でユーザー設定が保存できるか
+4. **API**: ライブラリ機能が動作するか
+
+## トラブルシューティング
+
+### ビルドエラー
+
+- 環境変数が正しく設定されているか確認
+- `npm run build` をローカルで実行して確認
+
+### 認証エラー
+
+- SupabaseのAuthentication設定を確認
+- リダイレクトURLが正しく設定されているか確認
+
+### データベースエラー
+
+- RLSポリシーが正しく設定されているか確認
+- `database/schema.sql` が実行されているか確認
 
 ---
-
-最終更新: 2025-01-28 06:30:00 JST
+最終更新: 2025-01-28 15:45:00 JST
