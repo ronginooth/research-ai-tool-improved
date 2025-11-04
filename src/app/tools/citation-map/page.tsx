@@ -1,12 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft, Home, Search, BookOpen, Network } from "lucide-react";
 import CitationMapVisualization from "@/components/tools/CitationMapVisualization";
 
-export default function CitationMapPage() {
+function CitationMapPageContent() {
   const searchParams = useSearchParams();
   const [doi, setDoi] = useState("");
   const [loading, setLoading] = useState(false);
@@ -160,5 +160,13 @@ export default function CitationMapPage() {
         </section>
       </main>
     </div>
+  );
+}
+
+export default function CitationMapPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-slate-100 flex items-center justify-center">読み込み中...</div>}>
+      <CitationMapPageContent />
+    </Suspense>
   );
 }

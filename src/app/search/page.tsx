@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   Search,
@@ -45,7 +45,7 @@ interface SearchResult {
 
 const DEMO_USER_ID = "demo-user-123";
 
-export default function SearchPage() {
+function SearchPageContent() {
   const searchParams = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
   const [searchType, setSearchType] = useState<
@@ -517,5 +517,13 @@ export default function SearchPage() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function SearchPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-slate-100 flex items-center justify-center">読み込み中...</div>}>
+      <SearchPageContent />
+    </Suspense>
   );
 }

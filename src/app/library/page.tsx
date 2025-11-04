@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -40,7 +40,7 @@ interface Review {
 
 const DEMO_USER_ID = "demo-user-123";
 
-export default function LibraryPage() {
+function LibraryPageContent() {
   const searchParams = useSearchParams();
   const [papers, setPapers] = useState<(Paper | LibraryPaper)[]>([]);
   const [reviews, setReviews] = useState<Review[]>([
@@ -959,6 +959,14 @@ KIF6遺伝子多型は心血管リスクの重要な予測因子として注目�
         )}
       </main>
     </div>
+  );
+}
+
+export default function LibraryPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-slate-100 flex items-center justify-center">読み込み中...</div>}>
+      <LibraryPageContent />
+    </Suspense>
   );
 }
 
