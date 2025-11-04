@@ -252,6 +252,9 @@ async function parseHtmlChunks(
 }
 
 async function clearExistingPaperContent(paperId: string) {
+  if (!supabaseAdmin) {
+    return;
+  }
   await supabaseAdmin
     .from("library_pdf_embeddings")
     .delete()
@@ -270,6 +273,9 @@ async function upsertSection(
   paperId: string,
   source: ChunkSource
 ): Promise<string | null> {
+  if (!supabaseAdmin) {
+    return null;
+  }
   const sectionTitle = source === "pdf" ? "PDF 全文" : "HTML 全文";
   const { data, error } = await supabaseAdmin
     .from("library_pdf_sections")
@@ -299,6 +305,9 @@ async function storeChunks(
   source: ChunkSource
 ): Promise<number> {
   if (!chunks.length) return 0;
+  if (!supabaseAdmin) {
+    return 0;
+  }
 
   const sectionId = await upsertSection(paperId, source);
 
@@ -386,6 +395,9 @@ export async function ingestPaperContent(
 
   if (!paperId) {
     throw new Error("paperId が指定されていません");
+  }
+  if (!supabaseAdmin) {
+    throw new Error("Supabase client is not initialized");
   }
 
   const { count: existingCount } = await supabaseAdmin
