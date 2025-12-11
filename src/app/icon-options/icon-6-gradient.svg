@@ -1,0 +1,24 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3B82F6;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#8B5CF6;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <rect width="32" height="32" rx="6" fill="url(#grad1)"/>
+  <!-- Book cover -->
+  <path d="M10 8C8.89543 8 8 8.89543 8 10V22C8 23.1046 8.89543 24 10 24H22C23.1046 24 24 23.1046 24 22V10C24 8.89543 23.1046 8 22 8H10Z" fill="white" fill-opacity="0.25"/>
+  <!-- Book pages -->
+  <path d="M10 10H22V22H10V10Z" fill="white" fill-opacity="0.4"/>
+  <!-- Book spine -->
+  <path d="M10 8V24" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- Text lines -->
+  <path d="M12 13H20" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+  <path d="M12 16H20" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+  <path d="M12 19H16" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- Book outline -->
+  <path d="M10 8H22C23.1046 8 24 8.89543 24 10V22C24 23.1046 23.1046 24 22 24H10C8.89543 24 8 23.1046 8 22V10C8 8.89543 8.89543 8 10 8Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+
+
+

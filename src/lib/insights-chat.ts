@@ -51,7 +51,7 @@ async function fetchLibraryRecord(paperId: string, userId: string) {
   }
   const { data, error } = await supabaseAdmin
     .from("user_library")
-    .select("title, authors, url, html_url, pdf_url")
+    .select("title, authors, url, html_url, pdf_url, grobid_data")
     .eq("paper_id", paperId)
     .eq("user_id", userId)
     .maybeSingle();
@@ -66,6 +66,8 @@ async function fetchLibraryRecord(paperId: string, userId: string) {
     authors: string | null;
     url: string | null;
     html_url: string | null;
+    pdf_url?: string | null;
+    grobid_data?: any | null;
   } | null;
 }
 
@@ -181,6 +183,50 @@ async function fetchPdfContexts(
       return scoreB - scoreA;
     })
     .slice(0, maxReferences);
+}
+
+async function extractGrobidContexts(
+  grobidData: any,
+  questionEmbedding: number[],
+  maxReferences: number
+): Promise<RankedContext[]> {
+  if (!grobidData?.sections?.length) return [];
+
+  const contexts: RankedContext[] = [];
+  for (const [index, section] of grobidData.sections
+    .slice(0, maxReferences * 3)
+    .entries()) {
+    const paragraphs = Array.isArray(section?.paragraphs)
+      ? section.paragraphs.join(" ")
+      : section?.paragraphs ?? "";
+    const text = normalizeWhitespace(paragraphs);
+    if (!text || text.length < 120) continue;
+
+    try {
+      const embedding = await aiProviderManager.generateEmbedding(
+        text.slice(0, 1500)
+      );
+      contexts.push({
+        id: `grobid-${index}`,
+        source: "pdf",
+        sectionTitle: section?.title ?? "GROBID Section",
+        pageNumber: null,
+        similarity: cosineSimilarity(questionEmbedding, embedding),
+        excerpt: text.slice(0, 240),
+        text,
+        chunkType: "grobid_section",
+      });
+    } catch (error) {
+      console.warn("GROBID embedding failed", error);
+    }
+  }
+
+  return contexts;
+}
+
+function normalizeWhitespace(input?: string | null) {
+  if (!input) return "";
+  return input.replace(/\s+/g, " ").trim();
 }
 
 async function fetchRelatedPapers(question: string): Promise<Paper[]> {
@@ -363,12 +409,19 @@ export async function generateInsightsChatResponse(
     questionEmbedding,
     maxReferences
   );
+  const grobidContexts = record?.grobid_data
+    ? await extractGrobidContexts(
+        record.grobid_data,
+        questionEmbedding,
+        maxReferences
+      )
+    : [];
 
-  if (!htmlContexts.length && !pdfContexts.length) {
+  if (!htmlContexts.length && !pdfContexts.length && !grobidContexts.length) {
     await ensurePaperEmbeddings({
       paperId,
       htmlUrl: htmlUrl ?? record?.html_url ?? record?.url ?? null,
-      pdfUrl: (record as any)?.pdf_url ?? null,
+      pdfUrl: record?.pdf_url ?? null,
       force: false,
     });
 
@@ -399,7 +452,12 @@ export async function generateInsightsChatResponse(
       }))
     : [];
 
-  let contexts = [...manualContexts, ...htmlContexts, ...pdfContexts].sort(
+  let contexts = [
+    ...manualContexts,
+    ...grobidContexts,
+    ...pdfContexts,
+    ...htmlContexts,
+  ].sort(
     (a, b) => {
       const bonusA = a.chunkType?.startsWith("figure_") ? 0.1 : 0;
       const bonusB = b.chunkType?.startsWith("figure_") ? 0.1 : 0;

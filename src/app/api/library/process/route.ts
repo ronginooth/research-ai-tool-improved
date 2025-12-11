@@ -27,15 +27,22 @@ export async function POST(request: NextRequest) {
     }
 
     const pdfBuffer = decodePdfBase64(body.pdfBase64 ?? null);
+    
+    console.log(`[GROBID Debug] /api/library/process called - paperId: ${paperId}, userId: ${userId}`);
+    console.log(`[GROBID Debug] Request body - pdfUrl: ${body.pdfUrl || 'null'}, htmlUrl: ${body.htmlUrl || 'null'}, pdfBase64: ${body.pdfBase64 ? `exists (${body.pdfBase64.length} chars)` : 'null'}`);
+    console.log(`[GROBID Debug] Decoded PDF buffer: ${pdfBuffer ? `exists (${pdfBuffer.length} bytes)` : 'null'}`);
 
     const summary = await ingestPaperContent({
       paperId,
+      userId,
       pdfUrl: body.pdfUrl ?? null,
       htmlUrl: body.htmlUrl ?? null,
       pdfBuffer: pdfBuffer ?? undefined,
       fallbackHtml: body.fallbackHtml ?? null,
       force: body.force ?? false,
     });
+    
+    console.log(`[GROBID Debug] ingestPaperContent completed - pdfChunks: ${summary.pdfChunks}, htmlChunks: ${summary.htmlChunks}, totalChunks: ${summary.totalChunks}`);
 
     return NextResponse.json({
       success: true,
@@ -46,7 +53,7 @@ export async function POST(request: NextRequest) {
   } catch (error: any) {
     console.error("Library process error", error);
     return NextResponse.json(
-      { error: error?.message || "論文本文の解析に失敗しました" },
+      { error: error?.message || "GROBID解析に失敗しました" },
       { status: 500 }
     );
   }

@@ -37,7 +37,7 @@ export class AdvancedSearchEngine {
     }
   }
 
-  // 多層検索戦略
+  // 多層検索戦略（段階的にキーワードを緩和）
   async multilayerSearch(
     topic: string,
     options: SearchOptions = { query: topic }
@@ -82,6 +82,40 @@ export class AdvancedSearchEngine {
         return original;
       };
 
+      // 段階的検索戦略：コアキーワードを段階的に減らしていく
+      // 引用は一文につき1個が多いので、複数のコアキーワードでヒットしない場合は段階的に緩和
+      const coreKeywords = plan?.coreKeywords || [];
+      const minResults = 5; // 最低限必要な結果数
+
+      // ステップ1: 全てのコアキーワードを含む検索（段階的にキーワードを減らす）
+      if (coreKeywords.length > 0) {
+        for (let keywordCount = coreKeywords.length; keywordCount > 0; keywordCount--) {
+          const selectedKeywords = coreKeywords.slice(0, keywordCount);
+          // Semantic Scholarは自然言語クエリをサポートしているので、キーワードをスペースで区切る
+          // 全てのキーワードを含むクエリを生成
+          const queryWithAllKeywords = selectedKeywords.join(" ");
+          
+          console.log(`[Multilayer Search] Trying with ${keywordCount} keywords: ${queryWithAllKeywords}`);
+          
+          // 複数ソースで検索
+          const results = await this.searchMultipleSources(
+            queryWithAllKeywords,
+            { ...options, plan }
+          ).catch(() => []);
+
+          // 結果が十分ある場合、または最後の試行の場合は返す
+          if (results.length >= minResults || keywordCount === 1) {
+            console.log(`[Multilayer Search] Found ${results.length} results with ${keywordCount} keywords`);
+            // 被引用数でソート（多い順）
+            const sortedResults = results.sort((a, b) => 
+              (b.citationCount || 0) - (a.citationCount || 0)
+            );
+            return this.deduplicateAndRank(sortedResults);
+          }
+        }
+      }
+
+      // ステップ2: 推奨クエリを使用
       const queries = plan?.recommendedQueries?.length
         ? plan.recommendedQueries.map((query) =>
             ensureCoreTerms(query, plan?.coreKeywords)
@@ -95,26 +129,30 @@ export class AdvancedSearchEngine {
 
       const resultsSets = await Promise.all(
         queries.map((query) =>
-          this.searchSemanticScholar(query, searchOptions).catch(() => [])
+          this.searchMultipleSources(query, searchOptions).catch(() => [])
         )
       );
 
       let combinedResults = this.deduplicateAndRank(resultsSets.flat());
 
-      if (combinedResults.length === 0 && queries.length > 1) {
+      // ステップ3: OR検索にフォールバック
+      if (combinedResults.length < minResults && queries.length > 1) {
         const combinedQuery = queries.map((query) => `(${query})`).join(" OR ");
-        combinedResults = await this.searchSemanticScholar(
+        combinedResults = await this.searchMultipleSources(
           combinedQuery,
           searchOptions
         ).catch(() => []);
+        combinedResults = this.deduplicateAndRank(combinedResults);
       }
 
+      // ステップ4: 最終フォールバック
       if (combinedResults.length === 0) {
         const fallbackQuery = ensureCoreTerms(topic, plan?.coreKeywords);
-        combinedResults = await this.searchSemanticScholar(
+        combinedResults = await this.searchMultipleSources(
           fallbackQuery,
           searchOptions
         ).catch(() => []);
+        combinedResults = this.deduplicateAndRank(combinedResults);
       }
 
       return combinedResults;
@@ -134,7 +172,7 @@ export class AdvancedSearchEngine {
     if (cached) return cached;
 
     try {
-      const papers = await this.searchSemanticScholar(query, options);
+      const papers = await this.searchMultipleSources(query, options);
       this.setCachedResult(cacheKey, papers);
       return papers;
     } catch (error) {
@@ -152,9 +190,9 @@ export class AdvancedSearchEngine {
       // AI で検索クエリを生成
       const queries = await aiProviderManager.generateQuery(topic);
 
-      // 各クエリで並列検索
+      // 各クエリで並列検索（複数ソース対応）
       const searchPromises = queries.map((query) =>
-        this.searchSemanticScholar(query, options).catch(() => [])
+        this.searchMultipleSources(query, options).catch(() => [])
       );
 
       const results = await Promise.all(searchPromises);
@@ -203,7 +241,7 @@ export class AdvancedSearchEngine {
       query: translatedQuery,
       limit: String(options.limit || 20),
       fields:
-        "paperId,title,abstract,authors,year,venue,citationCount,url,isOpenAccess",
+        "paperId,title,abstract,authors,year,publicationDate,venue,citationCount,url,isOpenAccess,doi",
     });
 
     // 年フィルターは精度を落とす可能性があるため除外（必要なら後段でフィルター）
@@ -216,6 +254,219 @@ export class AdvancedSearchEngine {
     );
   }
 
+  // PubMed API 検索
+  private async searchPubMed(
+    query: string,
+    options: SearchOptions
+  ): Promise<Paper[]> {
+    // 日本語クエリを英語に翻訳
+    const translatedQuery = await this.translateQueryToEnglish(query);
+
+    try {
+      // Step 1: esearchでPMIDを取得
+      const searchParams = new URLSearchParams({
+        db: "pubmed",
+        term: translatedQuery,
+        retmax: String(options.limit || 20),
+        retmode: "json",
+      });
+
+      const searchResponse = await fetch(
+        `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?${searchParams}`,
+        {
+          headers: {
+            "User-Agent": "Research-AI-Tool-Improved/2.0",
+          },
+        }
+      );
+
+      if (!searchResponse.ok) {
+        throw new Error(`PubMed esearch error: ${searchResponse.status}`);
+      }
+
+      const searchData = await searchResponse.json();
+      const pmids = searchData?.esearchresult?.idlist || [];
+
+      if (pmids.length === 0) {
+        return [];
+      }
+
+      // Step 2: esummaryで詳細情報を取得
+      const summaryParams = new URLSearchParams({
+        db: "pubmed",
+        id: pmids.join(","),
+        retmode: "json",
+      });
+
+      const summaryResponse = await fetch(
+        `https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?${summaryParams}`,
+        {
+          headers: {
+            "User-Agent": "Research-AI-Tool-Improved/2.0",
+          },
+        }
+      );
+
+      if (!summaryResponse.ok) {
+        throw new Error(`PubMed esummary error: ${summaryResponse.status}`);
+      }
+
+      const summaryData = await summaryResponse.json();
+      const results = summaryData?.result || {};
+
+      // データを整形
+      const papers: Paper[] = pmids
+        .map((pmid: string) => {
+          const paper = results[pmid];
+          if (!paper) return null;
+
+          const authors = paper.authors
+            ? paper.authors
+                .map((author: any) => {
+                  if (typeof author === "string") return author;
+                  return `${author.name || ""}`.trim();
+                })
+                .filter((name: string) => name)
+                .join(", ")
+            : "著者不明";
+
+          // pubdateから年、月、日を抽出
+          let year = new Date().getFullYear();
+          let month: number | null = null;
+          let day: number | null = null;
+
+          if (paper.pubdate) {
+            const pubdateStr = paper.pubdate;
+            // 年を抽出
+            const yearMatch = pubdateStr.match(/\b(19|20)\d{2}\b/);
+            if (yearMatch) {
+              year = parseInt(yearMatch[0]);
+            }
+
+            // 月を抽出（英語名または数字）
+            const monthNames: Record<string, number> = {
+              january: 1,
+              jan: 1,
+              february: 2,
+              feb: 2,
+              march: 3,
+              mar: 3,
+              april: 4,
+              apr: 4,
+              may: 5,
+              june: 6,
+              jun: 6,
+              july: 7,
+              jul: 7,
+              august: 8,
+              aug: 8,
+              september: 9,
+              sep: 9,
+              sept: 9,
+              october: 10,
+              oct: 10,
+              november: 11,
+              nov: 11,
+              december: 12,
+              dec: 12,
+            };
+
+            const monthMatch = pubdateStr.match(
+              /\b(january|jan|february|feb|march|mar|april|apr|may|june|jun|july|jul|august|aug|september|sep|sept|october|oct|november|nov|december|dec)\b/i
+            );
+            if (monthMatch) {
+              month = monthNames[monthMatch[0].toLowerCase()] || null;
+            } else {
+              // 数字形式の月を抽出（例: "2024-05-15"）
+              const monthNumMatch = pubdateStr.match(/\b(0?[1-9]|1[0-2])\b/);
+              if (
+                (monthNumMatch && !yearMatch) ||
+                (monthNumMatch && parseInt(monthNumMatch[0]) <= 12)
+              ) {
+                month = parseInt(monthNumMatch[0]);
+              }
+            }
+
+            // 日を抽出（1-31）
+            const dayMatch = pubdateStr.match(/\b([1-9]|[12][0-9]|3[01])\b/);
+            if (dayMatch) {
+              const dayNum = parseInt(dayMatch[0]);
+              if (dayNum >= 1 && dayNum <= 31) {
+                day = dayNum;
+              }
+            }
+          }
+
+          // Volume, Issue, Pagesを抽出
+          const volume = paper.volume || undefined;
+          const issue = paper.issue || undefined;
+          let pages: string | undefined = undefined;
+          if (paper.pages) {
+            pages = paper.pages;
+          } else if (paper.spage && paper.epage) {
+            pages = `${paper.spage}-${paper.epage}`;
+          } else if (paper.spage) {
+            pages = paper.spage;
+          } else if (paper.epage) {
+            pages = paper.epage;
+          }
+
+          return {
+            id: `pubmed-${pmid}`,
+            paperId: `pubmed-${pmid}`,
+            title: paper.title || "タイトルなし",
+            abstract: paper.abstract || "要約なし",
+            authors: authors || "著者不明",
+            year: year,
+            month: month,
+            day: day,
+            venue: paper.source || "ジャーナル不明",
+            volume: volume,
+            issue: issue,
+            pages: pages,
+            citationCount: 0, // PubMed APIには引用数が含まれない
+            url: `https://pubmed.ncbi.nlm.nih.gov/${pmid}/`,
+            source: "pubmed",
+          };
+        })
+        .filter((paper: Paper | null): paper is Paper => paper !== null);
+
+      return papers;
+    } catch (error) {
+      console.error("PubMed search error:", error);
+      return [];
+    }
+  }
+
+  // 複数ソース検索（Semantic Scholar + PubMed）
+  private async searchMultipleSources(
+    query: string,
+    options: SearchOptions
+  ): Promise<Paper[]> {
+    const databases = options.filters?.databases || ["semantic_scholar"];
+
+    const searchPromises: Promise<Paper[]>[] = [];
+
+    if (databases.includes("semantic_scholar")) {
+      searchPromises.push(
+        this.searchSemanticScholar(query, options).catch(() => [])
+      );
+    }
+
+    if (databases.includes("pubmed")) {
+      searchPromises.push(
+        this.searchPubMed(query, options).catch(() => [])
+      );
+    }
+
+    const results = await Promise.allSettled(searchPromises);
+    const allPapers = results
+      .filter((r) => r.status === "fulfilled")
+      .flatMap((r) => (r as PromiseFulfilledResult<Paper[]>).value);
+
+    return this.deduplicateAndRank(allPapers);
+  }
+
   // Semantic Scholar API 呼び出し
   private async callSemanticScholarAPI(
     params: URLSearchParams
@@ -226,20 +477,105 @@ export class AdvancedSearchEngine {
     );
 
     if (!response.ok) {
+      // 403エラーの場合、APIキーなしで再試行
+      if (response.status === 403) {
+        console.warn(
+          `[Semantic Scholar] API key invalid (403), trying without API key`
+        );
+        const fallbackHeaders = {
+          "User-Agent": "Research-AI-Tool-Improved/2.0",
+        };
+        const fallbackResponse = await fetch(
+          `https://api.semanticscholar.org/graph/v1/paper/search?${params}`,
+          { headers: fallbackHeaders }
+        );
+        
+        if (fallbackResponse.ok) {
+          console.log(
+            `[Semantic Scholar] Search succeeded without API key`
+          );
+          const data = await fallbackResponse.json();
+          if (data && data.data && Array.isArray(data.data)) {
+            return data.data.map((paper: any) => {
+              // publicationDateから年、月、日を抽出
+              let year = paper.year || new Date().getFullYear();
+              let month: number | null = null;
+              let day: number | null = null;
+
+              if (paper.publicationDate) {
+                // ISO 8601形式: "2024-05-15"
+                const dateParts = paper.publicationDate.split('-');
+                if (dateParts.length >= 1) {
+                  year = parseInt(dateParts[0]) || year;
+                }
+                if (dateParts.length >= 2) {
+                  month = parseInt(dateParts[1]) || null;
+                }
+                if (dateParts.length >= 3) {
+                  day = parseInt(dateParts[2]) || null;
+                }
+              }
+
+              return {
+                id: paper.paperId,
+                paperId: paper.paperId,
+                title: paper.title || "タイトルなし",
+                abstract: paper.abstract || "要約なし",
+                authors:
+                  paper.authors?.map((author: any) => author.name).join(", ") ||
+                  "著者不明",
+                year: year,
+                month: month,
+                day: day,
+                venue: paper.venue || "ジャーナル不明",
+                citationCount: paper.citationCount || 0,
+                url: paper.url || "#",
+                doi: paper.doi || undefined,
+                source: "semantic_scholar",
+              };
+            });
+          }
+        } else {
+          console.warn(
+            `[Semantic Scholar] Fallback also failed: ${fallbackResponse.status}`
+          );
+        }
+      }
+
       const errorText = await response.text();
-      console.error(
-        `Semantic Scholar API error: ${response.status}`,
-        errorText
-      );
+      let errorMessage: string;
+      let errorDetails: any = null;
+
+      // JSONエラーレスポンスをパース
+      try {
+        errorDetails = JSON.parse(errorText);
+        const message = errorDetails?.message || errorDetails?.error?.message;
+        if (message) {
+          errorMessage = `Semantic Scholar API error: ${response.status} - ${message}`;
+        } else {
+          errorMessage = `Semantic Scholar API error: ${response.status}`;
+        }
+      } catch {
+        // JSONパースに失敗した場合はテキストをそのまま使用（最初の200文字まで）
+        errorMessage = `Semantic Scholar API error: ${response.status} - ${errorText.substring(0, 200)}`;
+      }
 
       // レート制限の場合は特別な処理
       if (response.status === 429) {
+        console.warn(
+          `[Semantic Scholar] Rate limit exceeded (429), will retry...`
+        );
         throw new Error(`Rate limit exceeded. Please try again later.`);
       }
 
-      throw new Error(
-        `Semantic Scholar API error: ${response.status} - ${errorText}`
-      );
+      // 403以外のエラーは空配列を返して続行
+      if (response.status === 403) {
+        console.warn(`[Semantic Scholar] API key invalid, returning empty results`);
+        return [];
+      }
+
+      console.error(`[Semantic Scholar] ${errorMessage}`);
+      throw new Error(errorMessage);
     }
 
     const data = await response.json();
@@ -248,50 +584,98 @@ export class AdvancedSearchEngine {
       return [];
     }
 
-    return data.data.map((paper: any) => ({
-      id: paper.paperId,
-      paperId: paper.paperId,
-      title: paper.title || "タイトルなし",
-      authors: paper.authors?.map((a: any) => a.name).join(", ") || "著者不明",
-      year: paper.year || new Date().getFullYear(),
-      abstract: paper.abstract || "要約なし",
-      url:
-        paper.url || `https://www.semanticscholar.org/paper/${paper.paperId}`,
-      citationCount: paper.citationCount || 0,
-      venue: paper.venue || "ジャーナル不明",
-      isOpenAccess: paper.isOpenAccess || false,
-      doi: paper.doi,
-      source: "semantic_scholar",
-    }));
+    return data.data.map((paper: any) => {
+      // publicationDateから年、月、日を抽出
+      let year = paper.year || new Date().getFullYear();
+      let month: number | null = null;
+      let day: number | null = null;
+
+      if (paper.publicationDate) {
+        // ISO 8601形式: "2024-05-15"
+        const dateParts = paper.publicationDate.split('-');
+        if (dateParts.length >= 1) {
+          year = parseInt(dateParts[0]) || year;
+        }
+        if (dateParts.length >= 2) {
+          month = parseInt(dateParts[1]) || null;
+        }
+        if (dateParts.length >= 3) {
+          day = parseInt(dateParts[2]) || null;
+        }
+      }
+
+      return {
+        id: paper.paperId,
+        paperId: paper.paperId,
+        title: paper.title || "タイトルなし",
+        authors: paper.authors?.map((a: any) => a.name).join(", ") || "著者不明",
+        year: year,
+        month: month,
+        day: day,
+        publicationDate: paper.publicationDate || undefined,
+        abstract: paper.abstract || "要約なし",
+        url:
+          paper.url || `https://www.semanticscholar.org/paper/${paper.paperId}`,
+        citationCount: paper.citationCount || 0,
+        venue: paper.venue || "ジャーナル不明",
+        isOpenAccess: paper.isOpenAccess || false,
+        doi: paper.doi || undefined,
+        source: "semantic_scholar",
+      };
+    });
   }
 
   // 引用された論文を取得
   private async getCitedByPapers(paperId: string): Promise<Paper[]> {
     try {
       const response = await fetch(
-        `https://api.semanticscholar.org/graph/v1/paper/${paperId}/citations?limit=20&fields=paperId,title,abstract,authors,year,venue,citationCount,url`,
+        `https://api.semanticscholar.org/graph/v1/paper/${paperId}/citations?limit=20&fields=paperId,title,abstract,authors,year,publicationDate,venue,citationCount,url,doi`,
         { headers: s2Headers() }
       );
 
       if (!response.ok) return [];
 
       const data = await response.json();
-      return (data.data || []).map((citation: any) => ({
-        id: citation.citingPaper.paperId,
-        paperId: citation.citingPaper.paperId,
-        title: citation.citingPaper.title || "タイトルなし",
-        authors:
-          citation.citingPaper.authors?.map((a: any) => a.name).join(", ") ||
-          "著者不明",
-        year: citation.citingPaper.year || new Date().getFullYear(),
-        abstract: citation.citingPaper.abstract || "要約なし",
-        url:
-          citation.citingPaper.url ||
-          `https://www.semanticscholar.org/paper/${citation.citingPaper.paperId}`,
-        citationCount: citation.citingPaper.citationCount || 0,
-        venue: citation.citingPaper.venue || "ジャーナル不明",
-        source: "semantic_scholar",
-      }));
+      return (data.data || []).map((citation: any) => {
+        const paper = citation.citingPaper;
+        // publicationDateから年、月、日を抽出
+        let year = paper.year || new Date().getFullYear();
+        let month: number | null = null;
+        let day: number | null = null;
+
+        if (paper.publicationDate) {
+          const dateParts = paper.publicationDate.split('-');
+          if (dateParts.length >= 1) {
+            year = parseInt(dateParts[0]) || year;
+          }
+          if (dateParts.length >= 2) {
+            month = parseInt(dateParts[1]) || null;
+          }
+          if (dateParts.length >= 3) {
+            day = parseInt(dateParts[2]) || null;
+          }
+        }
+
+        return {
+          id: paper.paperId,
+          paperId: paper.paperId,
+          title: paper.title || "タイトルなし",
+          authors:
+            paper.authors?.map((a: any) => a.name).join(", ") ||
+            "著者不明",
+          year: year,
+          month: month,
+          day: day,
+          abstract: paper.abstract || "要約なし",
+          url:
+            paper.url ||
+            `https://www.semanticscholar.org/paper/${paper.paperId}`,
+          citationCount: paper.citationCount || 0,
+          venue: paper.venue || "ジャーナル不明",
+          doi: paper.doi || undefined,
+          source: "semantic_scholar",
+        };
+      });
     } catch (error) {
       console.error("Get cited by papers error:", error);
       return [];
@@ -302,29 +686,54 @@ export class AdvancedSearchEngine {
   private async getReferencePapers(paperId: string): Promise<Paper[]> {
     try {
       const response = await fetch(
-        `https://api.semanticscholar.org/graph/v1/paper/${paperId}/references?limit=20&fields=paperId,title,abstract,authors,year,venue,citationCount,url`,
+        `https://api.semanticscholar.org/graph/v1/paper/${paperId}/references?limit=20&fields=paperId,title,abstract,authors,year,publicationDate,venue,citationCount,url,doi`,
         { headers: s2Headers() }
       );
 
       if (!response.ok) return [];
 
       const data = await response.json();
-      return (data.data || []).map((reference: any) => ({
-        id: reference.paper.paperId,
-        paperId: reference.paper.paperId,
-        title: reference.paper.title || "タイトルなし",
-        authors:
-          reference.paper.authors?.map((a: any) => a.name).join(", ") ||
-          "著者不明",
-        year: reference.paper.year || new Date().getFullYear(),
-        abstract: reference.paper.abstract || "要約なし",
-        url:
-          reference.paper.url ||
-          `https://www.semanticscholar.org/paper/${reference.paper.paperId}`,
-        citationCount: reference.paper.citationCount || 0,
-        venue: reference.paper.venue || "ジャーナル不明",
-        source: "semantic_scholar",
-      }));
+      return (data.data || []).map((reference: any) => {
+        const paper = reference.paper;
+        // publicationDateから年、月、日を抽出
+        let year = paper.year || new Date().getFullYear();
+        let month: number | null = null;
+        let day: number | null = null;
+
+        if (paper.publicationDate) {
+          const dateParts = paper.publicationDate.split('-');
+          if (dateParts.length >= 1) {
+            year = parseInt(dateParts[0]) || year;
+          }
+          if (dateParts.length >= 2) {
+            month = parseInt(dateParts[1]) || null;
+          }
+          if (dateParts.length >= 3) {
+            day = parseInt(dateParts[2]) || null;
+          }
+        }
+
+        return {
+          id: paper.paperId,
+          paperId: paper.paperId,
+          title: paper.title || "タイトルなし",
+          authors:
+            paper.authors?.map((a: any) => a.name).join(", ") ||
+            "著者不明",
+          year: year,
+          month: month,
+          day: day,
+          publicationDate: paper.publicationDate || undefined,
+          abstract: paper.abstract || "要約なし",
+          url:
+            paper.url ||
+            `https://www.semanticscholar.org/paper/${paper.paperId}`,
+          citationCount: paper.citationCount || 0,
+          venue: paper.venue || "ジャーナル不明",
+          doi: paper.doi || undefined,
+          source: "semantic_scholar",
+        };
+      });
     } catch (error) {
       console.error("Get reference papers error:", error);
       return [];
@@ -375,7 +784,7 @@ export class AdvancedSearchEngine {
     query: string,
     options: SearchOptions
   ): Promise<Paper[]> {
-    return this.searchSemanticScholar(query, options).catch(() => []);
+    return this.searchMultipleSources(query, options).catch(() => []);
   }
 
   // フィルター適用
@@ -480,19 +889,27 @@ export class AdvancedSearchEngine {
         return await apiCall();
       } catch (error) {
         if (attempt === maxRetries) {
+          // 最後の試行でも失敗した場合はエラーを投げる
+          const errorMsg =
+            error instanceof Error ? error.message : "Unknown error";
+          console.error(
+            `[Retry] All ${maxRetries} attempts failed. Last error: ${errorMsg}`
+          );
           throw error;
         }
 
         // レート制限の場合は長めに待機
-        if (error instanceof Error && error.message.includes("Rate limit")) {
-          await new Promise((resolve) =>
-            setTimeout(resolve, delayMs * attempt * 2)
-          );
-        } else {
-          await new Promise((resolve) => setTimeout(resolve, delayMs));
-        }
+        const isRateLimit =
+          error instanceof Error && error.message.includes("Rate limit");
+        const waitTime = isRateLimit ? delayMs * attempt * 2 : delayMs;
 
-        console.log(`API call attempt ${attempt} failed, retrying...`);
+        console.warn(
+          `[Retry] API call attempt ${attempt}/${maxRetries} failed${
+            isRateLimit ? " (rate limited)" : ""
+          }, retrying in ${waitTime}ms...`
+        );
+
+        await new Promise((resolve) => setTimeout(resolve, waitTime));
       }
     }
     throw new Error("All retry attempts failed");

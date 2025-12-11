@@ -1,0 +1,16 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="32" height="32" rx="6" fill="#06B6D4"/>
+  <!-- Modern flat book design -->
+  <path d="M9 8C7.89543 8 7 8.89543 7 10V22C7 23.1046 7.89543 24 9 24H23C24.1046 24 25 23.1046 25 22V10C25 8.89543 24.1046 8 23 8H9Z" fill="white" fill-opacity="0.2"/>
+  <!-- Book pages with modern spacing -->
+  <rect x="9" y="10" width="14" height="12" fill="white" fill-opacity="0.3" rx="1"/>
+  <!-- Modern text lines -->
+  <rect x="11" y="13" width="10" height="1.5" rx="0.75" fill="white"/>
+  <rect x="11" y="16" width="10" height="1.5" rx="0.75" fill="white"/>
+  <rect x="11" y="19" width="6" height="1.5" rx="0.75" fill="white"/>
+  <!-- Book outline -->
+  <path d="M9 8H23C24.1046 8 25 8.89543 25 10V22C25 23.1046 24.1046 24 23 24H9C7.89543 24 7 23.1046 7 22V10C7 8.89543 7.89543 8 9 8Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+
+
+

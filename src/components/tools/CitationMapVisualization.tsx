@@ -10,10 +10,12 @@ interface CitationMapVisualizationProps {
     indirectConnections?: any[];
     networkMetrics?: any;
   };
+  initialLibraryPapers?: Set<string>;
 }
 
 export default function CitationMapVisualization({
   data,
+  initialLibraryPapers,
 }: CitationMapVisualizationProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [isDragging, setIsDragging] = useState(false);
@@ -41,8 +43,16 @@ export default function CitationMapVisualization({
   const [selectedPaper, setSelectedPaper] = useState<any>(null);
   const [showDetails, setShowDetails] = useState(false);
   const [savingToLibrary, setSavingToLibrary] = useState<string | null>(null);
-  const [libraryPapers, setLibraryPapers] = useState<Set<string>>(new Set());
+  const [libraryPapers, setLibraryPapers] = useState<Set<string>>(
+    initialLibraryPapers || new Set()
+  );
   const [isSimulating, setIsSimulating] = useState(false);
+  const [mapWidth, setMapWidth] = useState(800);
+  const [detailsWidth, setDetailsWidth] = useState(320);
+  const [listWidth, setListWidth] = useState(256);
+  const [isResizing, setIsResizing] = useState<string | null>(null);
+  const resizeStartRef = useRef<{ x: number; mapWidth: number; detailsWidth: number; listWidth: number } | null>(null);
+  const [viewMode, setViewMode] = useState<"citedBy" | "references" | "both">("citedBy");
 
   // 筆頭著者-年-ジャーナル表示のためのヘルパー関数
   const getFirstAuthorYear = (paper: any): string => {
@@ -137,21 +147,43 @@ export default function CitationMapVisualization({
     if (!paper) return;
 
     const paperId = paper.id || paper.paperId;
-    if (savingToLibrary === paperId) return; // 既に保存中
+    if (!paperId) {
+      console.error("Paper ID is missing:", paper);
+      alert("論文IDが取得できませんでした");
+      return;
+    }
 
-    setSavingToLibrary(paperId);
+    const paperIdString = String(paperId);
+    if (savingToLibrary === paperIdString) return; // 既に保存中
+
+    // 既にライブラリにある場合はスキップ
+    if (libraryPapers.has(paperIdString)) {
+      console.log(`Paper ${paperIdString} is already in library`);
+      return;
+    }
+
+    setSavingToLibrary(paperIdString);
 
     try {
+      // authorsの形式を確認（配列か文字列か）
+      let authorsString = "";
+      if (Array.isArray(paper.authors)) {
+        authorsString = paper.authors.map((a: any) => (typeof a === "string" ? a : a.name || a)).join(", ");
+      } else if (typeof paper.authors === "string") {
+        authorsString = paper.authors;
+      } else {
+        authorsString = "著者不明";
+      }
+
       const response = await fetch("/api/library", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          id: paperId,
+          id: paperIdString,
           title: paper.title || "タイトルなし",
-          authors:
-            paper.authors?.map((a: any) => a.name).join(", ") || "著者不明",
+          authors: authorsString,
           year: paper.year || new Date().getFullYear(),
           venue: paper.venue || "ジャーナル不明",
           abstract: paper.abstract || "要約なし",
@@ -164,30 +196,72 @@ export default function CitationMapVisualization({
       });
 
       if (response.ok) {
-        setLibraryPapers((prev) => new Set([...prev, paperId]));
-        console.log(`Paper ${paperId} saved to library`);
+        const responseData = await response.json();
+        // 保存成功時、libraryPapersに追加
+        setLibraryPapers((prev) => {
+          const newSet = new Set(prev);
+          newSet.add(paperIdString);
+          return newSet;
+        });
+        console.log(`Paper ${paperIdString} saved to library`);
+        alert("ライブラリに保存しました！");
       } else {
-        const errorData = await response.json();
-        console.error("Failed to save paper to library:", errorData.error);
-        alert(`ライブラリへの保存に失敗しました: ${errorData.error}`);
+        const errorData = await response.json().catch(() => ({ error: "不明なエラー" }));
+        console.error("Failed to save paper to library:", errorData);
+        
+        // 「既に保存されています」というエラーの場合、libraryPapersに追加
+        if (errorData.error && errorData.error.includes("既にライブラリに保存されています")) {
+          setLibraryPapers((prev) => {
+            const newSet = new Set(prev);
+            newSet.add(paperIdString);
+            return newSet;
+          });
+          console.log(`Paper ${paperIdString} is already in library, updating state`);
+          alert("この論文は既にライブラリに保存されています");
+        } else {
+          alert(`ライブラリへの保存に失敗しました: ${errorData.error || "不明なエラー"}`);
+        }
       }
     } catch (error) {
       console.error("Error saving paper to library:", error);
-      alert("ライブラリへの保存中にエラーが発生しました");
+      alert(`ライブラリへの保存中にエラーが発生しました: ${error instanceof Error ? error.message : "不明なエラー"}`);
     } finally {
       setSavingToLibrary(null);
     }
   };
 
-  // ライブラリから既存論文を取得
+  // ライブラリから既存論文を取得（initialLibraryPapersがない場合のみ）
   useEffect(() => {
+    if (initialLibraryPapers) {
+      // 親から渡された場合はそれを使用
+      setLibraryPapers(initialLibraryPapers);
+      return;
+    }
+
     const fetchLibraryPapers = async () => {
       try {
         const response = await fetch("/api/library?userId=demo-user-123");
         if (response.ok) {
           const data = await response.json();
           if (data.success && data.papers) {
-            const paperIds = new Set<string>(data.papers.map((p: any) => p.id as string));
+            // paper_id（Semantic Scholar ID）を取得
+            // 注意: p.idはUUID、p.paper_idまたはp.paperIdがSemantic Scholar ID
+            const paperIds = new Set<string>(
+              data.papers
+                .map((p: any) => {
+                  // paper_idまたはpaperIdを優先（Semantic Scholar ID）
+                  const semanticId = p.paper_id || p.paperId;
+                  return semanticId ? String(semanticId) : null;
+                })
+                .filter(Boolean)
+            );
+            console.log("Fetched library papers (Semantic Scholar IDs):", Array.from(paperIds));
+            console.log("Sample paper from library:", data.papers[0] ? {
+              id: data.papers[0].id, // UUID
+              paper_id: data.papers[0].paper_id, // Semantic Scholar ID
+              paperId: data.papers[0].paperId, // マッピングされたSemantic Scholar ID
+              title: data.papers[0].title?.substring(0, 50)
+            } : "No papers");
             setLibraryPapers(paperIds);
           }
         }
@@ -197,11 +271,51 @@ export default function CitationMapVisualization({
     };
 
     fetchLibraryPapers();
-  }, []);
+  }, [initialLibraryPapers]);
 
   // データを変換してノードとエッジを作成
   useEffect(() => {
     if (!data) return;
+    
+    // デバッグ: ライブラリの状態と中心論文のIDを確認
+    if (data.center) {
+      const centerId = data.center.id || data.center.paperId;
+      const centerIdString = String(centerId);
+      console.log("Center paper ID check:", {
+        centerId,
+        centerIdString,
+        centerIdType: typeof centerId,
+        isInLibrary: libraryPapers.has(centerIdString),
+        libraryPapersSize: libraryPapers.size,
+        libraryPapersSample: Array.from(libraryPapers).slice(0, 3),
+        libraryPapersHasCenterId: libraryPapers.has(centerId),
+        libraryPapersHasCenterIdString: libraryPapers.has(centerIdString)
+      });
+    }
+    
+    // デバッグ: 引用された論文と参考文献のデータを確認
+    console.log("Citation Map Data:", {
+      viewMode,
+      citedByCount: data.citedBy?.length || 0,
+      referencesCount: data.references?.length || 0,
+      citedByIsArray: Array.isArray(data.citedBy),
+      referencesIsArray: Array.isArray(data.references),
+      citedBySample: data.citedBy?.slice(0, 3).map((p: any) => ({
+        id: p.id,
+        paperId: p.paperId,
+        title: p.title?.substring(0, 30)
+      })) || [],
+      referencesSample: data.references?.slice(0, 3).map((p: any) => ({
+        id: p.id,
+        paperId: p.paperId,
+        title: p.title?.substring(0, 30)
+      })) || []
+    });
+    
+    // mapWidthを初期化（まだ設定されていない場合）
+    if (mapWidth === 800) {
+      // 初期値はそのまま
+    }
 
     const newNodes: Array<{
       id: string;
@@ -220,9 +334,10 @@ export default function CitationMapVisualization({
     // 中心ノードを追加
     if (data.center) {
       const centerId = data.center.id || data.center.paperId;
-      const isInLibrary = libraryPapers.has(centerId);
+      const centerIdString = String(centerId);
+      const isInLibrary = libraryPapers.has(centerIdString);
       newNodes.push({
-        id: centerId,
+        id: centerIdString,
         label: getFirstAuthorYear(data.center),
         group: "center",
         size: 8,
@@ -230,13 +345,15 @@ export default function CitationMapVisualization({
       });
     }
 
-    // 引用された論文を追加
-    if (data.citedBy && Array.isArray(data.citedBy)) {
+    // 引用された論文を追加（viewModeが"citedBy"または"both"の場合）
+    if ((viewMode === "citedBy" || viewMode === "both") && data.citedBy && Array.isArray(data.citedBy)) {
       data.citedBy.forEach((paper: any, index: number) => {
-        if (paper && paper.id) {
-          const isInLibrary = libraryPapers.has(paper.id);
+        const paperId = paper.id || paper.paperId;
+        if (paper && paperId) {
+          const paperIdString = String(paperId);
+          const isInLibrary = libraryPapers.has(paperIdString);
           newNodes.push({
-            id: paper.id,
+            id: paperIdString,
             label: getFirstAuthorYear(paper),
             group: "citedBy",
             size: 6,
@@ -244,9 +361,10 @@ export default function CitationMapVisualization({
           });
           // 中心論文から引用論文へのエッジ
           if (data.center) {
+            const centerId = data.center.id || data.center.paperId;
             newEdges.push({
-              source: data.center.id || data.center.paperId,
-              target: paper.id,
+              source: String(centerId),
+              target: paperIdString,
               type: "citation",
               weight: 1,
             });
@@ -255,31 +373,49 @@ export default function CitationMapVisualization({
       });
     }
 
-    // 参考文献を追加
-    if (data.references && Array.isArray(data.references)) {
+    // 参考文献を追加（viewModeが"references"または"both"の場合）
+    if ((viewMode === "references" || viewMode === "both") && data.references && Array.isArray(data.references)) {
+      console.log(`Adding references nodes: viewMode=${viewMode}, references count=${data.references.length}`);
+      let addedCount = 0;
       data.references.forEach((paper: any, index: number) => {
-        if (paper && paper.id) {
-          const isInLibrary = libraryPapers.has(paper.id);
+        const paperId = paper.id || paper.paperId;
+        if (paper && paperId) {
+          const paperIdString = String(paperId);
+          const isInLibrary = libraryPapers.has(paperIdString);
           newNodes.push({
-            id: paper.id,
+            id: paperIdString,
             label: getFirstAuthorYear(paper),
             group: "references",
             size: 5,
             color: isInLibrary ? "#10b981" : "#7c3aed", // 参考文献: ライブラリ=緑、通常=紫
           });
+          addedCount++;
           // 参考文献から中心論文へのエッジ
           if (data.center) {
+            const centerId = data.center.id || data.center.paperId;
             newEdges.push({
-              source: paper.id,
-              target: data.center.id || data.center.paperId,
+              source: paperIdString,
+              target: String(centerId),
               type: "reference",
               weight: 1,
             });
           }
+        } else {
+          console.warn(`Reference paper at index ${index} is missing ID:`, paper);
         }
       });
+      console.log(`Added ${addedCount} reference nodes to the map`);
+    } else {
+      console.log(`Skipping references: viewMode=${viewMode}, hasReferences=${!!data.references}, isArray=${Array.isArray(data.references)}`);
     }
 
+    console.log(`Final nodes count: ${newNodes.length}, edges count: ${newEdges.length}`);
+    console.log(`Nodes by group:`, {
+      center: newNodes.filter(n => n.group === "center").length,
+      citedBy: newNodes.filter(n => n.group === "citedBy").length,
+      references: newNodes.filter(n => n.group === "references").length
+    });
+    
     setNodes(newNodes);
     setEdges(newEdges);
 
@@ -312,13 +448,16 @@ export default function CitationMapVisualization({
     });
 
     // 参考文献を配置（外側の円、より広く）
+    console.log(`Positioning reference nodes: count=${referenceNodes.length}, viewMode=${viewMode}`);
     referenceNodes.forEach((node, index) => {
       const angle = (2 * Math.PI * index) / Math.max(referenceNodes.length, 1);
       const radius = baseRadius * 1.2; // 外側の円
       const x = centerX + radius * Math.cos(angle);
       const y = centerY + radius * Math.sin(angle);
       initialPositions[node.id] = { x, y };
+      console.log(`Reference node ${index}: id=${node.id}, position=(${x}, ${y})`);
     });
+    console.log(`Total positions after positioning: ${Object.keys(initialPositions).length}, referenceNodes: ${referenceNodes.length}`);
 
     // 文字の重なりを防ぐための微調整
     const adjustPositions = (positions: {
@@ -352,7 +491,7 @@ export default function CitationMapVisualization({
 
     const finalPositions = adjustPositions(initialPositions);
     setNodePositions(finalPositions);
-  }, [data]);
+  }, [data, mapWidth, viewMode, libraryPapers]);
 
   // 斥力シミュレーション
   useEffect(() => {
@@ -390,7 +529,7 @@ export default function CitationMapVisualization({
         newPositions[nodeId1] = {
           x: Math.max(
             30,
-            Math.min(770, newPositions[nodeId1].x + forceX * damping)
+            Math.min(mapWidth - 30, newPositions[nodeId1].x + forceX * damping)
           ),
           y: Math.max(
             30,
@@ -417,7 +556,7 @@ export default function CitationMapVisualization({
     const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
     svg.setAttribute("width", "100%");
     svg.setAttribute("height", "600");
-    svg.setAttribute("viewBox", "0 0 800 600");
+    svg.setAttribute("viewBox", `0 0 ${mapWidth} 600`);
     svg.style.border = "1px solid #e2e8f0";
     svg.style.borderRadius = "8px";
     svg.style.backgroundColor = "#f8fafc";
@@ -484,10 +623,11 @@ export default function CitationMapVisualization({
         text.setAttribute("font-size", "9");
         text.setAttribute("fill", "#374151");
         text.setAttribute("class", "node-label");
-        text.textContent =
-          node.label.length > 25
-            ? node.label.substring(0, 25) + "..."
-            : node.label;
+        // ライブラリ内の論文には✓マークを追加
+        const labelText = libraryPapers.has(node.id) 
+          ? `✓ ${node.label.length > 23 ? node.label.substring(0, 23) + "..." : node.label}`
+          : (node.label.length > 25 ? node.label.substring(0, 25) + "..." : node.label);
+        text.textContent = labelText;
         nodeGroup.appendChild(text);
 
         // ドラッグイベントを追加
@@ -641,7 +781,7 @@ export default function CitationMapVisualization({
       if (!isDragging || !dragNodeId) return;
 
       const rect = svg.getBoundingClientRect();
-      const x = (e.clientX - rect.left) * (800 / rect.width);
+      const x = (e.clientX - rect.left) * (mapWidth / rect.width);
       const y = (e.clientY - rect.top) * (600 / rect.height);
 
       // ドラッグ中のノードの位置を更新
@@ -692,36 +832,145 @@ export default function CitationMapVisualization({
     };
   }, [nodes, edges, nodePositions, isDragging, dragNodeId]);
 
-  return (
-    <div className="flex w-full gap-4">
-      {/* メインネットワーク図 */}
-      <div className="flex-1">
-        <div className="mb-4 text-sm text-slate-600">
-          💡 ノードをドラッグして移動できます。クリックで詳細を表示します。
-        </div>
-        <div className="mb-4 flex gap-2">
-          <button
-            onClick={() => setIsSimulating(!isSimulating)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
-              isSimulating
-                ? "bg-red-600 text-white hover:bg-red-700"
-                : "bg-blue-600 text-white hover:bg-blue-700"
-            }`}
-          >
-            {isSimulating ? "斥力停止" : "斥力開始"}
-          </button>
-          {isSimulating && (
-            <span className="px-3 py-2 text-sm text-slate-600 bg-slate-100 rounded-lg">
-              ノード間の斥力が働いています
-            </span>
-          )}
-        </div>
-        <div ref={containerRef} className="w-full" />
-      </div>
+  // リサイズハンドラー
+  const handleMouseDown = (side: 'right' | 'left', e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsResizing(side);
+    resizeStartRef.current = {
+      x: e.clientX,
+      mapWidth,
+      detailsWidth,
+      listWidth,
+    };
+  };
 
-      {/* 詳細パネル */}
-      {showDetails && (
-        <div className="w-80 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+  useEffect(() => {
+    if (!isResizing || !resizeStartRef.current) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const deltaX = e.clientX - resizeStartRef.current!.x;
+
+      if (isResizing === 'right') {
+        // 詳細パネルとmapエリアの境界をリサイズ
+        const newDetailsWidth = Math.max(200, Math.min(600, resizeStartRef.current.detailsWidth - deltaX));
+        const newMapWidth = Math.max(400, resizeStartRef.current.mapWidth + deltaX);
+        setDetailsWidth(newDetailsWidth);
+        setMapWidth(newMapWidth);
+      } else if (isResizing === 'left') {
+        // 論文一覧パネルとmapエリアの境界をリサイズ
+        const newListWidth = Math.max(200, Math.min(500, resizeStartRef.current.listWidth + deltaX));
+        const newMapWidth = Math.max(400, resizeStartRef.current.mapWidth - deltaX);
+        setListWidth(newListWidth);
+        setMapWidth(newMapWidth);
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsResizing(null);
+      resizeStartRef.current = null;
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isResizing, mapWidth, detailsWidth, listWidth]);
+
+  return (
+    <div className="w-full overflow-x-auto overflow-y-hidden">
+      <div 
+        className="flex gap-4" 
+        style={{ 
+          minWidth: `${mapWidth + (showDetails ? detailsWidth + 4 : 0) + listWidth + 32}px`,
+          width: 'max-content'
+        }}
+      >
+        {/* メインネットワーク図 */}
+        <div 
+          className="flex-shrink-0" 
+          style={{ 
+            minWidth: `${mapWidth}px`,
+            width: `${mapWidth}px`
+          }}
+        >
+          <div className="mb-4 text-sm text-slate-600">
+            💡 ノードをドラッグして移動できます。クリックで詳細を表示します。
+          </div>
+          
+          {/* 表示モード切り替えメニュー */}
+          <div className="mb-4 flex items-center gap-4">
+            <div className="flex gap-2 bg-slate-100 rounded-lg p-1">
+              <button
+                onClick={() => setViewMode("citedBy")}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition ${
+                  viewMode === "citedBy"
+                    ? "bg-white text-blue-600 shadow-sm"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                引用された論文 ({data.citedBy?.length || 0})
+              </button>
+              <button
+                onClick={() => setViewMode("references")}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition ${
+                  viewMode === "references"
+                    ? "bg-white text-blue-600 shadow-sm"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                参考文献 ({data.references?.length || 0})
+              </button>
+              <button
+                onClick={() => setViewMode("both")}
+                className={`px-4 py-2 rounded-md text-sm font-medium transition ${
+                  viewMode === "both"
+                    ? "bg-white text-blue-600 shadow-sm"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                両方表示
+              </button>
+            </div>
+            
+            <button
+              onClick={() => setIsSimulating(!isSimulating)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+                isSimulating
+                  ? "bg-red-600 text-white hover:bg-red-700"
+                  : "bg-blue-600 text-white hover:bg-blue-700"
+              }`}
+            >
+              {isSimulating ? "斥力停止" : "斥力開始"}
+            </button>
+            {isSimulating && (
+              <span className="px-3 py-2 text-sm text-slate-600 bg-slate-100 rounded-lg">
+                ノード間の斥力が働いています
+              </span>
+            )}
+          </div>
+          <div ref={containerRef} className="w-full" style={{ minWidth: `${mapWidth}px` }} />
+        </div>
+
+        {/* リサイズハンドル（詳細パネルとmapエリアの間） */}
+        {showDetails && (
+          <div
+            className="flex-shrink-0 w-1 bg-slate-200 hover:bg-slate-400 cursor-col-resize transition-colors"
+            onMouseDown={(e) => handleMouseDown('right', e)}
+          />
+        )}
+
+        {/* 詳細パネル */}
+        {showDetails && (
+          <div 
+            className="flex-shrink-0 rounded-lg border border-slate-200 bg-white p-4 shadow-sm overflow-y-auto"
+            style={{ 
+              width: `${detailsWidth}px`,
+              maxHeight: '600px'
+            }}
+          >
           <div className="mb-4 flex items-center justify-between">
             <h3 className="text-lg font-semibold text-slate-900">論文詳細</h3>
             <button
@@ -812,39 +1061,61 @@ export default function CitationMapVisualization({
 
               {/* ライブラリ保存ボタン */}
               <div className="mt-4">
-                {libraryPapers.has(selectedPaper.id) ? (
-                  <div className="flex items-center gap-2 text-sm text-green-600">
-                    <span>✅</span>
-                    <span>ライブラリに保存済み</span>
+                {libraryPapers.has(String(selectedPaper.id)) ? (
+                  <div className="rounded-lg bg-green-50 border border-green-200 p-3">
+                    <div className="flex items-center gap-2 text-sm font-medium text-green-700">
+                      <span className="text-green-600 font-bold">✓</span>
+                      <span>ライブラリに保存済み</span>
+                    </div>
+                    <button
+                      onClick={() => {
+                        window.location.href = `/library?paperId=${selectedPaper.id}`;
+                      }}
+                      className="mt-2 w-full rounded-lg bg-green-600 px-4 py-2 text-xs font-medium text-white transition hover:bg-green-700"
+                    >
+                      ライブラリで詳細を表示
+                    </button>
                   </div>
                 ) : (
                   <button
                     onClick={() => {
                       // 元の論文データを取得
                       let originalPaper = null;
-                      if (
-                        selectedPaper.id === data.center?.id ||
-                        selectedPaper.id === data.center?.paperId
-                      ) {
-                        originalPaper = data.center;
-                      } else if (data.citedBy) {
+                      const selectedId = String(selectedPaper.id);
+                      
+                      // 中心論文をチェック
+                      if (data.center) {
+                        const centerId = String(data.center.id || data.center.paperId);
+                        if (selectedId === centerId) {
+                          originalPaper = data.center;
+                        }
+                      }
+                      
+                      // 引用された論文をチェック
+                      if (!originalPaper && data.citedBy && Array.isArray(data.citedBy)) {
                         originalPaper = data.citedBy.find(
-                          (p: any) => p.id === selectedPaper.id
+                          (p: any) => String(p.id || p.paperId) === selectedId
                         );
-                      } else if (data.references) {
+                      }
+                      
+                      // 参考文献をチェック
+                      if (!originalPaper && data.references && Array.isArray(data.references)) {
                         originalPaper = data.references.find(
-                          (p: any) => p.id === selectedPaper.id
+                          (p: any) => String(p.id || p.paperId) === selectedId
                         );
                       }
 
                       if (originalPaper) {
                         saveToLibrary(originalPaper);
+                      } else {
+                        console.error("Original paper not found for selectedPaper:", selectedPaper);
+                        alert("論文データが見つかりませんでした。");
                       }
                     }}
-                    disabled={savingToLibrary === selectedPaper.id}
+                    disabled={savingToLibrary === String(selectedPaper.id)}
                     className="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-gray-400"
                   >
-                    {savingToLibrary === selectedPaper.id
+                    {savingToLibrary === String(selectedPaper.id)
                       ? "保存中..."
                       : "ライブラリに保存"}
                   </button>
@@ -855,48 +1126,105 @@ export default function CitationMapVisualization({
         </div>
       )}
 
+      {/* リサイズハンドル（論文一覧パネルとmapエリアの間） */}
+      <div
+        className="flex-shrink-0 w-1 bg-slate-200 hover:bg-slate-400 cursor-col-resize transition-colors"
+        onMouseDown={(e) => handleMouseDown('left', e)}
+      />
+
       {/* 論文一覧パネル */}
-      <div className="w-64 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+      <div 
+        className="flex-shrink-0 rounded-lg border border-slate-200 bg-white p-4 shadow-sm overflow-y-auto"
+        style={{ 
+          width: `${listWidth}px`,
+          maxHeight: '600px'
+        }}
+      >
         <h3 className="mb-4 text-lg font-semibold text-slate-900">論文一覧</h3>
 
         <div className="space-y-3">
           {/* 中心論文 */}
-          {data.center && (
-            <div className="rounded-lg bg-green-50 p-3">
-              <div className="text-xs font-semibold text-green-800">
-                中心論文
+          {data.center && (() => {
+            const centerId = data.center.id || data.center.paperId;
+            const centerIdString = String(centerId);
+            const isInLibrary = libraryPapers.has(centerIdString);
+            const isSelected =
+              selectedPaper && (selectedPaper.id === centerId || selectedPaper.id === data.center.paperId);
+            return (
+              <div
+                className={`cursor-pointer rounded-lg p-3 transition border ${
+                  isSelected 
+                    ? "bg-green-100 border-green-300" 
+                    : isInLibrary
+                    ? "bg-green-50 border-green-200 hover:bg-green-100"
+                    : "bg-green-50 border-green-100 hover:bg-green-100"
+                }`}
+                onClick={() => {
+                  if (isInLibrary) {
+                    // ライブラリ詳細画面に遷移
+                    window.location.href = `/library?paperId=${centerIdString}`;
+                  } else {
+                    setSelectedPaper(getPaperDetails(data.center));
+                    setShowDetails(true);
+                  }
+                }}
+              >
+                <div className="text-xs font-semibold text-green-800 flex items-center gap-1">
+                  {isInLibrary && <span className="text-green-600 font-bold">✓</span>}
+                  中心論文
+                  {isInLibrary && <span className="text-xs text-green-600">(保存済み)</span>}
+                </div>
+                <div className="text-sm text-green-700">
+                  {getFirstAuthorYear(data.center)}
+                </div>
+                <div className="text-xs text-green-600">
+                  {data.center.title?.substring(0, 50)}...
+                </div>
+                {isInLibrary && (
+                  <div className="mt-1 text-xs text-green-600 font-medium">
+                    ✓ ライブラリに保存済み - クリックでライブラリ詳細を表示
+                  </div>
+                )}
               </div>
-              <div className="text-sm text-green-700">
-                {getFirstAuthorYear(data.center)}
-              </div>
-              <div className="text-xs text-green-600">
-                {data.center.title?.substring(0, 50)}...
-              </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* 引用された論文 */}
-          {data.citedBy && data.citedBy.length > 0 && (
+          {(viewMode === "citedBy" || viewMode === "both") && data.citedBy && Array.isArray(data.citedBy) && data.citedBy.length > 0 && (
             <div>
               <div className="mb-2 text-xs font-semibold text-slate-700">
                 引用された論文 ({data.citedBy.length})
               </div>
               <div className="space-y-2 max-h-40 overflow-y-auto">
                 {data.citedBy.slice(0, 10).map((paper: any, index: number) => {
-                  const isInLibrary = libraryPapers.has(paper.id);
+                  if (!paper) return null;
+                  const paperId = paper.id || paper.paperId;
+                  if (!paperId) {
+                    console.warn("CitedBy paper missing ID:", paper);
+                    return null;
+                  }
+                  const paperIdString = String(paperId);
+                  const isInLibrary = libraryPapers.has(paperIdString);
                   const isSelected =
-                    selectedPaper && selectedPaper.id === paper.id;
+                    selectedPaper && (selectedPaper.id === paper.id || selectedPaper.id === paper.paperId);
                   return (
                     <div
-                      key={paper.id || index}
-                      className={`cursor-pointer rounded p-2 text-xs hover:bg-slate-50 ${
-                        isSelected ? "bg-blue-100 border border-blue-300" : ""
+                      key={paper.id || paper.paperId || index}
+                      className={`cursor-pointer rounded p-2 text-xs transition ${
+                        isSelected 
+                          ? "bg-blue-100 border border-blue-300" 
+                          : isInLibrary
+                          ? "bg-green-50 border border-green-200 hover:bg-green-100"
+                          : "hover:bg-slate-50"
                       }`}
                       onClick={() => {
-                        const isInLibrary = libraryPapers.has(paper.id);
+                        const paperId = paper.id || paper.paperId;
+                        if (!paperId) return;
+                        const paperIdString = String(paperId);
+                        const isInLibrary = libraryPapers.has(paperIdString);
                         if (isInLibrary) {
                           // ライブラリ詳細画面に遷移
-                          window.location.href = `/library?paperId=${paper.id}`;
+                          window.location.href = `/library?paperId=${paperIdString}`;
                         } else {
                           setSelectedPaper(getPaperDetails(paper));
                           setShowDetails(true);
@@ -905,18 +1233,28 @@ export default function CitationMapVisualization({
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
-                          <div className="font-medium text-slate-700">
+                          <div className={`font-medium flex items-center gap-1 ${
+                            isInLibrary ? "text-green-700" : "text-slate-700"
+                          }`}>
+                            {isInLibrary && <span className="text-green-600">✓</span>}
                             {getFirstAuthorYear(paper)}
                           </div>
-                          <div className="text-slate-500">
+                          <div className={`text-xs ${
+                            isInLibrary ? "text-green-600" : "text-slate-500"
+                          }`}>
                             {paper.title?.substring(0, 40)}...
                           </div>
+                          {isInLibrary && (
+                            <div className="text-xs text-green-600 mt-1">
+                              ライブラリに保存済み
+                            </div>
+                          )}
                         </div>
                         <div className="ml-2">
                           {isInLibrary ? (
                             <span
-                              className="text-green-600"
-                              title="ライブラリに保存済み - クリックで詳細表示"
+                              className="text-green-600 font-bold"
+                              title="ライブラリに保存済み - クリックでライブラリ詳細を表示"
                             >
                               ✓
                             </span>
@@ -926,10 +1264,10 @@ export default function CitationMapVisualization({
                                 e.stopPropagation();
                                 saveToLibrary(paper);
                               }}
-                              disabled={savingToLibrary === paper.id}
+                              disabled={savingToLibrary === String(paper.id || paper.paperId)}
                               className="text-blue-600 hover:text-blue-800 disabled:text-gray-400"
                             >
-                              {savingToLibrary === paper.id ? "..." : "+"}
+                              {savingToLibrary === String(paper.id || paper.paperId) ? "..." : "+"}
                             </button>
                           )}
                         </div>
@@ -947,7 +1285,7 @@ export default function CitationMapVisualization({
           )}
 
           {/* 参考文献 */}
-          {data.references && data.references.length > 0 && (
+          {(viewMode === "references" || viewMode === "both") && data.references && Array.isArray(data.references) && data.references.length > 0 && (
             <div>
               <div className="mb-2 text-xs font-semibold text-slate-700">
                 参考文献 ({data.references.length})
@@ -956,20 +1294,34 @@ export default function CitationMapVisualization({
                 {data.references
                   .slice(0, 10)
                   .map((paper: any, index: number) => {
-                    const isInLibrary = libraryPapers.has(paper.id);
+                    if (!paper) return null;
+                    const paperId = paper.id || paper.paperId;
+                    if (!paperId) {
+                      console.warn("Reference paper missing ID:", paper);
+                      return null;
+                    }
+                    const paperIdString = String(paperId);
+                    const isInLibrary = libraryPapers.has(paperIdString);
                     const isSelected =
-                      selectedPaper && selectedPaper.id === paper.id;
+                      selectedPaper && (selectedPaper.id === paper.id || selectedPaper.id === paper.paperId);
                     return (
                       <div
-                        key={paper.id || index}
-                        className={`cursor-pointer rounded p-2 text-xs hover:bg-slate-50 ${
-                          isSelected ? "bg-blue-100 border border-blue-300" : ""
+                        key={paper.id || paper.paperId || index}
+                        className={`cursor-pointer rounded p-2 text-xs transition ${
+                          isSelected 
+                            ? "bg-blue-100 border border-blue-300" 
+                            : isInLibrary
+                            ? "bg-green-50 border border-green-200 hover:bg-green-100"
+                            : "hover:bg-slate-50"
                         }`}
                         onClick={() => {
-                          const isInLibrary = libraryPapers.has(paper.id);
+                          const paperId = paper.id || paper.paperId;
+                          if (!paperId) return;
+                          const paperIdString = String(paperId);
+                          const isInLibrary = libraryPapers.has(paperIdString);
                           if (isInLibrary) {
                             // ライブラリ詳細画面に遷移
-                            window.location.href = `/library?paperId=${paper.id}`;
+                            window.location.href = `/library?paperId=${paperIdString}`;
                           } else {
                             setSelectedPaper(getPaperDetails(paper));
                             setShowDetails(true);
@@ -978,18 +1330,28 @@ export default function CitationMapVisualization({
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex-1">
-                            <div className="font-medium text-slate-700">
+                            <div className={`font-medium flex items-center gap-1 ${
+                              isInLibrary ? "text-green-700" : "text-slate-700"
+                            }`}>
+                              {isInLibrary && <span className="text-green-600">✓</span>}
                               {getFirstAuthorYear(paper)}
                             </div>
-                            <div className="text-slate-500">
+                            <div className={`text-xs ${
+                              isInLibrary ? "text-green-600" : "text-slate-500"
+                            }`}>
                               {paper.title?.substring(0, 40)}...
                             </div>
+                            {isInLibrary && (
+                              <div className="text-xs text-green-600 mt-1">
+                                ライブラリに保存済み
+                              </div>
+                            )}
                           </div>
                           <div className="ml-2">
                             {isInLibrary ? (
                               <span
-                                className="text-green-600"
-                                title="ライブラリに保存済み - クリックで詳細表示"
+                                className="text-green-600 font-bold"
+                                title="ライブラリに保存済み - クリックでライブラリ詳細を表示"
                               >
                                 ✓
                               </span>
@@ -999,10 +1361,10 @@ export default function CitationMapVisualization({
                                   e.stopPropagation();
                                   saveToLibrary(paper);
                                 }}
-                                disabled={savingToLibrary === paper.id}
+                                disabled={savingToLibrary === String(paper.id || paper.paperId)}
                                 className="text-blue-600 hover:text-blue-800 disabled:text-gray-400"
                               >
-                                {savingToLibrary === paper.id ? "..." : "+"}
+                                {savingToLibrary === String(paper.id || paper.paperId) ? "..." : "+"}
                               </button>
                             )}
                           </div>
@@ -1020,6 +1382,7 @@ export default function CitationMapVisualization({
           )}
         </div>
       </div>
+    </div>
     </div>
   );
 }

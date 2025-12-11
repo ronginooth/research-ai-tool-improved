@@ -202,23 +202,22 @@ export default function ReviewCard({
                 return (
                   <div
                     key={paper.id}
-                    className={`flex items-center justify-between rounded-lg border p-3 transition ${
-                      isInLibrary
-                        ? "border-green-200 bg-green-50"
-                        : "border-slate-200 bg-white hover:bg-slate-50"
-                    }`}
+                    className="relative flex items-center justify-between rounded-lg border border-slate-200 bg-white p-3 transition hover:bg-slate-50"
                   >
+                    {/* 右上の保存済みラベル */}
+                    {isInLibrary && (
+                      <div className="absolute top-2 right-2 z-10">
+                        <span className="inline-flex items-center gap-1 rounded-md bg-green-600 px-2 py-0.5 text-[10px] font-semibold text-white shadow-sm">
+                          <BookOpen className="h-2.5 w-2.5" />
+                          保存済み
+                        </span>
+                      </div>
+                    )}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <span className="text-xs font-medium text-slate-500">
                           [{index + 1}]
                         </span>
-                        {isInLibrary && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
-                            <BookOpen className="h-3 w-3" />
-                            ライブラリに保存済み
-                          </span>
-                        )}
                       </div>
                       <h5 className="text-sm font-medium text-slate-900 line-clamp-1">
                         {paper.title}

@@ -54,6 +54,66 @@ export class CitationMapGenerator {
     }
   }
 
+  // paperIdから直接Citation Mapを生成
+  async generateCitationMapByPaperId(paperId: string): Promise<CitationMap> {
+    // paperIdの検証
+    const trimmedPaperId = paperId.trim();
+    if (!trimmedPaperId || trimmedPaperId.length === 0) {
+      throw new Error("PaperId is empty or invalid");
+    }
+
+    // paperIdの形式チェック（通常は英数字とハイフンのみ）
+    if (!/^[a-zA-Z0-9\-]+$/.test(trimmedPaperId)) {
+      console.warn(`[CITATION MAP] Suspicious paperId format: ${trimmedPaperId}`);
+    }
+
+    const cacheKey = `citation_map_paperid_${trimmedPaperId}`;
+    const cached = this.cache.get(cacheKey);
+
+    if (cached) {
+      return cached;
+    }
+
+    try {
+      // paperIdから直接論文を取得
+      const centerPaper = await this.getPaperByPaperId(trimmedPaperId);
+      if (!centerPaper) {
+        throw new Error(`Paper not found for paperId: ${trimmedPaperId}`);
+      }
+
+      // 引用された論文を取得
+      const citedBy = await this.getCitedByPapers(centerPaper.paperId);
+
+      // 参考文献を取得
+      const references = await this.getReferencePapers(centerPaper.paperId);
+
+      // 間接的接続を探索
+      const indirectConnections = await this.findIndirectConnections(
+        centerPaper.paperId
+      );
+
+      const citationMap: CitationMap = {
+        center: centerPaper,
+        citedBy: citedBy.slice(0, 50),
+        references: references.slice(0, 50),
+        indirectConnections: indirectConnections.slice(0, 30),
+        networkMetrics: this.calculateNetworkMetrics(
+          centerPaper,
+          citedBy,
+          references
+        ),
+      };
+
+      // キャッシュに保存
+      this.cache.set(cacheKey, citationMap);
+
+      return citationMap;
+    } catch (error) {
+      console.error("Citation map generation error:", error);
+      throw error;
+    }
+  }
+
   // DOIで論文を取得
   private async getPaperByDOI(doi: string): Promise<Paper | null> {
     try {
@@ -157,6 +217,110 @@ export class CitationMapGenerator {
       return this.formatPaperData(data);
     } catch (error) {
       console.error("Get paper by DOI error:", error);
+      return null;
+    }
+  }
+
+  // paperIdから直接論文を取得するメソッド
+  private async getPaperByPaperId(paperId: string): Promise<Paper | null> {
+    try {
+      console.log(`[CITATION MAP] Fetching paper for paperId: ${paperId}`);
+      
+      // APIキーの有無に応じて待機時間を調整
+      const hasApiKey = !!process.env.SEMANTIC_SCHOLAR_API_KEY;
+      const initialWaitTime = hasApiKey ? 2000 : 3000; // APIキーあり: 2秒、なし: 3秒
+      await new Promise((resolve) => setTimeout(resolve, initialWaitTime));
+
+      const response = await fetch(
+        `https://api.semanticscholar.org/graph/v1/paper/${paperId}?fields=paperId,title,abstract,authors,year,venue,citationCount,url,isOpenAccess`,
+        { headers: s2Headers() }
+      );
+
+      console.log(`[CITATION MAP] PaperId API response status: ${response.status}`);
+
+      if (!response.ok) {
+        // エラーレスポンスの詳細を取得
+        let errorMessage = `HTTP ${response.status}`;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorData.error || errorMessage;
+          console.error(`[CITATION MAP] API error response:`, errorData);
+        } catch (e) {
+          const errorText = await response.text();
+          console.error(`[CITATION MAP] API error text:`, errorText);
+          errorMessage = errorText || errorMessage;
+        }
+
+        if (response.status === 429) {
+          // レート制限の場合は長めに待機（10-15秒）
+          const waitTime = hasApiKey ? 10000 : 15000;
+          console.log(`[CITATION MAP] Rate limited, waiting ${waitTime / 1000} seconds...`);
+          await new Promise((resolve) => setTimeout(resolve, waitTime));
+          
+          // 再試行（最大3回）
+          for (let retryCount = 0; retryCount < 3; retryCount++) {
+            const retryWaitTime = hasApiKey ? 2000 : 3000;
+            await new Promise((resolve) => setTimeout(resolve, retryWaitTime));
+            
+            const retryResponse = await fetch(
+              `https://api.semanticscholar.org/graph/v1/paper/${paperId}?fields=paperId,title,abstract,authors,year,venue,citationCount,url,isOpenAccess`,
+              { headers: s2Headers() }
+            );
+            console.log(`[CITATION MAP] Retry ${retryCount + 1}/3 response status: ${retryResponse.status}`);
+            
+            if (retryResponse.ok) {
+              const data = await retryResponse.json();
+              console.log(`[CITATION MAP] Retry success for paperId: ${paperId}`);
+              return this.formatPaperData(data);
+            } else if (retryResponse.status === 429) {
+              // まだレート制限の場合はさらに待機
+              const additionalWait = hasApiKey ? 10000 : 15000;
+              console.log(`[CITATION MAP] Still rate limited, waiting ${additionalWait / 1000} more seconds...`);
+              await new Promise((resolve) => setTimeout(resolve, additionalWait));
+              continue;
+            } else {
+              // 429以外のエラーの場合はリトライを中止
+              let retryErrorMessage = `HTTP ${retryResponse.status}`;
+              try {
+                const retryErrorData = await retryResponse.json();
+                retryErrorMessage = retryErrorData.message || retryErrorData.error || retryErrorMessage;
+              } catch (e) {
+                // ignore
+              }
+              console.error(`[CITATION MAP] Retry ${retryCount + 1} failed for paperId ${paperId}: ${retryErrorMessage}`);
+              if (retryCount === 2) {
+                return null;
+              }
+            }
+          }
+          
+          // すべてのリトライが失敗した場合
+          console.error(`[CITATION MAP] All retries failed for paperId ${paperId} due to rate limiting`);
+          return null;
+        }
+
+        // 404エラーの場合
+        if (response.status === 404) {
+          console.error(`[CITATION MAP] Paper not found for paperId: ${paperId} (404)`);
+          return null;
+        }
+
+        console.error(`[CITATION MAP] Failed to fetch paper by paperId: ${paperId}, status: ${response.status}, error: ${errorMessage}`);
+        return null;
+      }
+
+      const data = await response.json();
+      console.log(`[CITATION MAP] Successfully fetched paper for paperId: ${paperId}, title: ${data.title?.substring(0, 50)}`);
+      
+      // データの検証
+      if (!data.paperId) {
+        console.error(`[CITATION MAP] Invalid response: paperId is missing`, data);
+        return null;
+      }
+
+      return this.formatPaperData(data);
+    } catch (error) {
+      console.error(`[CITATION MAP] Get paper by paperId error for ${paperId}:`, error);
       return null;
     }
   }

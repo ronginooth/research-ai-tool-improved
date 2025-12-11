@@ -6,11 +6,18 @@ import {
   extractFigureCaptions,
 } from "@/lib/paper-content";
 import { supabaseAdmin } from "@/lib/supabase";
+import {
+  checkGrobidAvailable,
+  processPdfWithGrobid,
+  parseGrobidTei,
+  convertGrobidToChunks,
+} from "@/lib/grobid";
 
 type ChunkSource = "pdf" | "html";
 
 interface IngestOptions {
   paperId: string;
+  userId?: string;
   pdfUrl?: string | null;
   pdfBuffer?: Buffer;
   htmlUrl?: string | null;
@@ -148,62 +155,118 @@ async function fetchOriginalHtml(htmlUrl: string): Promise<string | null> {
   }
 }
 
-async function parsePdfChunks(pdfData: Buffer): Promise<InternalChunk[]> {
-  const pageTexts: string[] = [];
+interface ParsePdfResult {
+  chunks: InternalChunk[];
+  grobidTeiXml?: string | null;
+  grobidData?: any | null;
+}
 
-  try {
-    // pdf-libを使用してPDFを解析
-    const { PDFDocument } = await import("pdf-lib");
-    const pdfDoc = await PDFDocument.load(pdfData);
-    const pages = pdfDoc.getPages();
-
-    // 各ページからテキストを抽出（pdf-libは直接テキスト抽出できないため、代替手段を使用）
-    // 注: pdf-libはメタデータ中心なので、テキスト抽出には制限があります
-    // 代わりに、PDFのバイト列から簡易的にテキストを抽出
-    const pdfText = pdfData.toString("latin1");
-    const textMatches = pdfText.match(/\((.*?)\)/g) || [];
-    const extractedText = textMatches
-      .map((match) => match.slice(1, -1))
-      .filter((text) => text.length > 3 && /[a-zA-Z]/.test(text))
-      .join(" ")
-      .replace(/\s+/g, " ")
-      .trim();
-
-    if (extractedText) {
-      // ページ数に応じて分割
-      const pageCount = pages.length;
-      const textPerPage = Math.ceil(extractedText.length / pageCount);
-      for (let i = 0; i < pageCount; i++) {
-        const start = i * textPerPage;
-        const end = Math.min((i + 1) * textPerPage, extractedText.length);
-        const pageText = extractedText.slice(start, end);
-        if (pageText.trim()) {
-          pageTexts.push(pageText);
+async function parsePdfChunks(pdfData: Buffer): Promise<ParsePdfResult> {
+  // 大容量PDFの事前チェック
+  const sizeMB = pdfData.length / (1024 * 1024);
+  if (sizeMB > 50) {
+    console.warn(`[PDF Parse] Large PDF detected (${sizeMB.toFixed(2)}MB). Consider using pdf-parse directly for faster processing.`);
+  }
+  
+  // GROBIDが利用可能な場合は優先的に使用
+  const grobidAvailable = await checkGrobidAvailable();
+  console.log(`[PDF Parse] GROBID available: ${grobidAvailable}`);
+  
+  if (grobidAvailable) {
+    try {
+      console.log("[PDF Parse] Step 1: Using GROBID for PDF parsing...");
+      const teiXml = await processPdfWithGrobid(pdfData);
+      
+      if (!teiXml) {
+        console.warn("[PDF Parse] Step 1 failed: GROBID returned no TEI XML, falling back to pdf-parse");
+      } else {
+        console.log(`[PDF Parse] Step 1 success: GROBID returned TEI XML (${teiXml.length} bytes)`);
+        
+        console.log("[PDF Parse] Step 2: Parsing TEI XML...");
+        const grobidResult = parseGrobidTei(teiXml);
+        
+        if (!grobidResult) {
+          console.warn("[PDF Parse] Step 2 failed: TEI XML parsing failed, falling back to pdf-parse");
+        } else if (grobidResult.sections.length === 0) {
+          console.warn("[PDF Parse] Step 2 failed: GROBID result has no sections, falling back to pdf-parse");
+        } else {
+          console.log(`[PDF Parse] Step 2 success: Parsed ${grobidResult.sections.length} sections`);
+          
+          const grobidChunks = convertGrobidToChunks(
+            grobidResult,
+            MAX_CHARS_PER_CHUNK
+          );
+          const chunks: InternalChunk[] = grobidChunks.map((chunk) => ({
+            text: chunk.text,
+            source: "pdf" as const,
+            sectionTitle: chunk.sectionTitle,
+            pageNumber: chunk.pageNumber,
+            chunkType: chunk.chunkType,
+          }));
+          console.log(`[PDF Parse] Success: GROBID extracted ${chunks.length} chunks from ${grobidResult.sections.length} sections`);
+          return {
+            chunks,
+            grobidTeiXml: teiXml,
+            grobidData: grobidResult,
+          };
         }
       }
+    } catch (error: any) {
+      const errorType = error.code || error.message || "unknown";
+      console.error(`[PDF Parse] Step 1/2 error (${errorType}): GROBID processing failed, falling back to pdf-parse:`, error.message || error);
     }
-  } catch (error) {
-    console.warn("PDF parsing failed, returning empty chunks:", error);
-    return [];
+  } else {
+    console.log("[PDF Parse] GROBID not available, using pdf-parse directly");
   }
 
-  const chunks: InternalChunk[] = [];
-  pageTexts.forEach((pageText, index) => {
-    const chunkTexts = splitTextIntoChunks(pageText);
-    chunkTexts.forEach((chunkText) => {
-      if (!chunkText) return;
-      const chunkType = isFigureCaption(chunkText) ? "figure_pdf" : "pdf_text";
-      chunks.push({
-        text: chunkText,
-        source: "pdf",
-        sectionTitle: `Page ${index + 1}`,
-        pageNumber: index + 1,
-        chunkType,
+  // フォールバック: pdf-parseを使用した確実な全文抽出
+  console.log("[PDF Parse] Using pdf-parse for fallback text extraction");
+  try {
+    const pdfParse = await import("pdf-parse");
+    const pdfInfo = await pdfParse.default(pdfData);
+    
+    const fullText = pdfInfo.text || "";
+    
+    if (fullText && fullText.trim().length > 0) {
+      console.log(`[PDF Parse] Extracted ${fullText.length} characters from PDF`);
+      
+      // 全文をチャンクに分割
+      const chunks: InternalChunk[] = [];
+      const chunkTexts = splitTextIntoChunks(fullText, MAX_CHARS_PER_CHUNK);
+      
+      chunkTexts.forEach((chunkText, index) => {
+        if (!chunkText.trim()) return;
+        const chunkType = isFigureCaption(chunkText) ? "figure_pdf" : "pdf_text";
+        chunks.push({
+          text: chunkText,
+          source: "pdf",
+          sectionTitle: "Full Text",
+          pageNumber: null, // pdf-parseはページ情報も提供可能だが、ここでは簡略化
+          chunkType,
+        });
       });
-    });
-  });
+      
+      console.log(`[PDF Parse] Created ${chunks.length} chunks from full text`);
+      return {
+        chunks,
+        grobidTeiXml: null,
+        grobidData: null,
+      };
+    } else {
+      console.warn("[PDF Parse] No text extracted from PDF");
+    }
+  } catch (error: any) {
+    console.error("[PDF Parse] Fallback extraction failed:", error.message || error);
+    console.error("[PDF Parse] Error type:", error.code || "unknown");
+  }
 
-  return chunks;
+  // 最終フォールバック: 空のチャンクを返す
+  console.warn("[PDF Parse] All extraction methods failed, returning empty chunks");
+  return {
+    chunks: [],
+    grobidTeiXml: null,
+    grobidData: null,
+  };
 }
 
 async function parseHtmlChunks(
@@ -400,18 +463,41 @@ export async function ingestPaperContent(
     throw new Error("Supabase client is not initialized");
   }
 
+  // paperIdはuser_library.id（UUID）として扱う
+  // library_pdf_chunksテーブルのpaper_idはuser_library.id（UUID）を参照
   const { count: existingCount } = await supabaseAdmin
     .from("library_pdf_embeddings")
     .select("id", { count: "exact", head: true })
     .eq("paper_id", paperId);
 
-  if (!force && (existingCount ?? 0) > 0) {
+  // GROBIDの出力が既に保存されているかチェック（user_library.id（UUID）で検索）
+  const { data: existingLibraryRecord, error: grobidCheckError } = await supabaseAdmin
+    .from("user_library")
+    .select("id, grobid_processed_at, grobid_tei_xml, grobid_data, paper_id")
+    .eq("id", paperId) // user_library.id（UUID）で検索
+    .maybeSingle();
+  
+  if (grobidCheckError) {
+    console.error("[GROBID Debug] Failed to check existing GROBID output:", grobidCheckError);
+  }
+
+  const hasGrobidOutput = !!(existingLibraryRecord?.grobid_tei_xml || existingLibraryRecord?.grobid_data);
+  console.log(`[GROBID Debug] Checking existing GROBID output - hasGrobidOutput: ${hasGrobidOutput}, existingCount: ${existingCount ?? 0}`);
+
+  // 既に埋め込みが存在し、GROBIDの出力も保存されている場合のみスキップ
+  if (!force && (existingCount ?? 0) > 0 && hasGrobidOutput) {
+    console.log(`[GROBID Debug] Skipping - embeddings exist (${existingCount}) and GROBID output already saved`);
     return {
       pdfChunks: 0,
       htmlChunks: 0,
       totalChunks: existingCount ?? 0,
       skipped: true,
     };
+  }
+
+  // GROBIDの出力が保存されていない場合は、PDFを再解析してGROBIDの出力を保存する
+  if (!hasGrobidOutput && (pdfBuffer || pdfUrl)) {
+    console.log(`[GROBID Debug] GROBID output not found, will process PDF to save GROBID output`);
   }
 
   await clearExistingPaperContent(paperId);
@@ -424,8 +510,12 @@ export async function ingestPaperContent(
   }
 
   let resolvedPdf = pdfBuffer ?? null;
+  console.log(`[GROBID Debug] Initial PDF state - pdfBuffer: ${!!pdfBuffer}, pdfUrl: ${pdfUrl || 'null'}`);
+  
   if (!resolvedPdf && pdfUrl) {
+    console.log(`[GROBID Debug] Fetching PDF from URL: ${pdfUrl}`);
     resolvedPdf = await fetchPdfBuffer(pdfUrl);
+    console.log(`[GROBID Debug] PDF fetch result: ${resolvedPdf ? `success (${resolvedPdf.length} bytes)` : 'failed'}`);
   }
 
   if (!resolvedPdf && !resolvedHtml) {
@@ -439,7 +529,94 @@ export async function ingestPaperContent(
   const htmlChunks = resolvedHtml
     ? await parseHtmlChunks(resolvedHtml, originalHtml || undefined)
     : [];
-  const pdfChunks = resolvedPdf ? await parsePdfChunks(resolvedPdf) : [];
+  
+  console.log(`[GROBID Debug] About to parse PDF - resolvedPdf: ${!!resolvedPdf}, resolvedHtml: ${!!resolvedHtml}`);
+  
+  // GROBIDが利用可能かチェック（エラー保存の判定に使用）
+  const grobidAvailable = resolvedPdf ? await checkGrobidAvailable() : false;
+  
+  const pdfResult = resolvedPdf ? await parsePdfChunks(resolvedPdf) : { chunks: [], grobidTeiXml: null, grobidData: null };
+  const pdfChunks = pdfResult.chunks;
+  console.log(`[GROBID Debug] PDF parsing completed - chunks: ${pdfChunks.length}, grobidTeiXml: ${!!pdfResult.grobidTeiXml}, grobidData: ${!!pdfResult.grobidData}`);
+
+  // GROBIDの出力をuser_libraryテーブルに保存
+  console.log(`[GROBID Debug] paperId: ${paperId}, userId: ${options.userId}`);
+  console.log(`[GROBID Debug] grobidTeiXml exists: ${!!pdfResult.grobidTeiXml}, grobidData exists: ${!!pdfResult.grobidData}`);
+  console.log(`[GROBID Debug] grobidTeiXml length: ${pdfResult.grobidTeiXml?.length || 0}, grobidData sections: ${pdfResult.grobidData?.sections?.length || 0}`);
+  
+  // GROBIDが利用可能だったが、出力がない場合（エラー）を保存
+  if (grobidAvailable && resolvedPdf && !pdfResult.grobidTeiXml && !pdfResult.grobidData) {
+    // GROBID処理が試みられたが失敗した場合、エラーを保存
+    const errorMessage = "GROBID処理が失敗しました。フォールバック処理を使用しました。";
+    console.warn(`[GROBID Debug] GROBID processing failed, saving error: ${errorMessage}`);
+    
+    if (supabaseAdmin) {
+      try {
+        // user_library.id（UUID）で更新
+        const { error: updateError } = await supabaseAdmin
+          .from("user_library")
+          .update({
+            grobid_processed_at: new Date().toISOString(),
+          })
+          .eq("id", paperId); // user_library.id（UUID）で更新
+        
+        if (updateError) {
+          console.error("[GROBID Debug] Failed to save GROBID processed_at:", updateError);
+        } else {
+          console.log(`[GROBID Debug] GROBID processed_at saved successfully`);
+        }
+      } catch (error: any) {
+        console.error("[GROBID Debug] Failed to save GROBID processed_at:", error);
+      }
+    }
+  }
+  
+  if (pdfResult.grobidTeiXml || pdfResult.grobidData) {
+    if (!supabaseAdmin) {
+      console.error("[GROBID Debug] Supabase admin client is not initialized");
+      throw new Error("Supabase client is not initialized");
+    }
+    
+    try {
+      // user_library.id（UUID）で更新
+      const updateData: any = {
+        grobid_tei_xml: pdfResult.grobidTeiXml,
+        grobid_data: pdfResult.grobidData ? JSON.parse(JSON.stringify(pdfResult.grobidData)) : null,
+        grobid_processed_at: new Date().toISOString(),
+      };
+      
+      console.log(`[GROBID Debug] Updating user_library with id (UUID): ${paperId}`);
+      
+      // user_library.id（UUID）で更新
+      const { data, error: grobidUpdateError } = await supabaseAdmin
+        .from("user_library")
+        .update(updateData)
+        .eq("id", paperId) // user_library.id（UUID）で更新
+        .select();
+      
+      if (grobidUpdateError) {
+        console.error("[GROBID Debug] Failed to save GROBID output:", grobidUpdateError);
+        console.error("[GROBID Debug] Error details:", JSON.stringify(grobidUpdateError, null, 2));
+        console.error("[GROBID Debug] Error code:", grobidUpdateError.code);
+        console.error("[GROBID Debug] Error message:", grobidUpdateError.message);
+      } else {
+        console.log(`[GROBID Debug] GROBID output saved successfully. Updated rows: ${data?.length || 0}`);
+        if (data && data.length > 0) {
+          console.log(`[GROBID Debug] Updated record id: ${data[0]?.id}, paperId: ${data[0]?.paper_id}, userId: ${data[0]?.user_id}`);
+          console.log(`[GROBID Debug] grobid_tei_xml saved: ${!!data[0]?.grobid_tei_xml}, grobid_data saved: ${!!data[0]?.grobid_data}`);
+        } else {
+          console.warn(`[GROBID Debug] No rows updated. Check if libraryId (${paperId}) matches existing records.`);
+          console.warn(`[GROBID Debug] Existing library record: ${JSON.stringify(existingLibraryRecord)}`);
+        }
+      }
+    } catch (error: any) {
+      console.error("[GROBID Debug] Exception while saving GROBID output:", error);
+      console.error("[GROBID Debug] Error stack:", error?.stack);
+      console.error("[GROBID Debug] Error message:", error?.message);
+    }
+  } else {
+    console.log("[GROBID Debug] No GROBID output to save (grobidTeiXml and grobidData are both null)");
+  }
 
   let htmlStored = 0;
   let pdfStored = 0;

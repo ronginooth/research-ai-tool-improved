@@ -5,15 +5,23 @@ export interface Paper {
   title: string;
   authors: string;
   year: number;
+  month?: number | null; // 1-12
+  day?: number | null; // 1-31
+  publicationDate?: string; // ISO 8601形式: "2024-05-15"（元のAPIレスポンスを保持）
   abstract: string;
   url: string;
   citationCount: number;
   venue: string;
+  volume?: string; // 巻号
+  issue?: string; // 号
+  pages?: string; // ページ番号（例: "123-145"）
   source?: string;
   searchQuery?: string;
   isOpenAccess?: boolean;
   doi?: string;
   pdfUrl?: string;
+  pdfStoragePath?: string | null;
+  pdfFileName?: string | null;
   keywords?: string[];
   fieldClassification?: string[];
   impactFactor?: number;
@@ -51,6 +59,12 @@ export interface AIProviderConfig {
 }
 
 // 検索関連
+export interface SourceStats {
+  source: string;
+  fetched: number; // 取得件数
+  displayed: number; // 表示件数
+}
+
 export interface SearchResult {
   papers: Paper[];
   total: number;
@@ -61,6 +75,25 @@ export interface SearchResult {
   success?: boolean;
   message?: string;
   plan?: SearchPlan;
+  sourceStats?: SourceStats[]; // 各ソースの統計情報
+  searchLogic?: {
+    originalQuery: string; // 元の検索クエリ
+    translatedQuery: string; // 翻訳後のクエリ
+    translationMethod: "gemini" | "fallback" | "none"; // 翻訳方法
+    searchedSources: string[]; // 実際に検索したソース
+    userIntent?: {
+      mainConcepts: string[]; // 主要な概念
+      compoundTerms: string[]; // 複合語やフレーズ
+      searchPurpose: string; // 検索の目的
+      keyPhrases: string[]; // 引用符で囲むべきフレーズ
+    };
+    processingSteps?: Array<{
+      step: string;
+      description: string;
+      query?: string;
+      details?: any;
+    }>; // クエリ処理の途中経過
+  };
 }
 
 export interface SearchOptions {
@@ -402,6 +435,15 @@ export interface LibraryItem {
   htmlUrl?: string | null;
   pdf_url?: string | null;
   html_url?: string | null;
+  pdfStoragePath?: string | null;
+  pdf_file_name?: string | null;
+  pdfFileName?: string | null;
+  grobidTeiXml?: string | null;
+  grobid_tei_xml?: string | null;
+  grobidData?: any | null;
+  grobid_data?: any | null;
+  grobidProcessedAt?: string | null;
+  grobid_processed_at?: string | null;
   createdAt: string;
   updatedAt?: string;
 }

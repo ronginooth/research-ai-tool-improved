@@ -1,0 +1,44 @@
+{
+  "id": "vancouver",
+  "name": "Vancouver",
+  "displayName": "Vancouver (Numeric)",
+  "isSystem": true,
+  "sort": {
+    "mode": "citation-order",
+    "key": "citation_order"
+  },
+  "authorRules": {
+    "maxAuthors": 6,
+    "etAlAfter": 6,
+    "delimiter": ", ",
+    "finalDelimiter": ", ",
+    "format": "LastName FirstInitial"
+  },
+  "title": {
+    "include": true,
+    "case": "sentence",
+    "endPunctuation": "."
+  },
+  "journal": {
+    "useItalic": false,
+    "useVenue": true,
+    "fallbackAbbreviation": ""
+  },
+  "volume": {
+    "useBold": false,
+    "includeIssue": false,
+    "format": "range",
+    "pageSeparator": "-"
+  },
+  "doi": {
+    "include": true,
+    "prefix": "doi:"
+  },
+  "year": {
+    "format": "comma"
+  },
+  "template": "{authors}. {title}. {journal}. {year};{volume}:{pages}. {doi}"
+}
+
+
+

@@ -224,49 +224,49 @@ KIF6遺伝子多型は心血管リスクの重要な予測因子として注目�
   };
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-800">
-      <header className="border-b border-slate-200 bg-white">
+    <div className="min-h-screen bg-[var(--color-background)] text-[var(--color-text)]">
+      <header className="border-b border-[var(--color-border)] bg-[var(--color-surface)]">
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-6">
             <Link
               href="/"
-              className="text-sm text-slate-600 hover:text-slate-900"
+              className="text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text)]"
             >
               ホームに戻る
             </Link>
-            <span className="text-lg font-semibold text-slate-900">
+            <span className="text-lg font-semibold text-[var(--color-text)]">
               レビュー生成
             </span>
           </div>
           <div className="flex items-center gap-4">
             <button
               type="button"
-              className="rounded-full border border-slate-200 p-2 text-slate-500 hover:border-slate-300 hover:text-slate-700"
+              className="rounded-full border border-[var(--color-border)] p-2 text-[var(--color-text-secondary)] hover:border-[var(--color-primary)] hover:text-[var(--color-text)]"
             >
               <Bell className="h-4 w-4" />
             </button>
-            <div className="h-9 w-9 rounded-full bg-slate-300" />
+            <div className="h-9 w-9 rounded-full bg-[var(--color-border)]" />
           </div>
         </div>
       </header>
 
       <main className="mx-auto w-full max-w-6xl px-6 py-8">
         <div className="space-y-8">
-          <section className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+          <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-8 shadow-sm">
             <div className="text-center">
-              <h1 className="text-2xl font-semibold text-slate-900">
+              <h1 className="text-2xl font-semibold text-[var(--color-text)]">
                 AI Literature Review Generator
               </h1>
-              <p className="mt-3 text-sm leading-relaxed text-slate-600">
+              <p className="mt-3 text-sm leading-relaxed text-[var(--color-text-secondary)]">
                 研究トピックと関連論文をもとに、落合方式のレビューを生成します。
               </p>
             </div>
 
             <div className="mt-8 grid gap-8 lg:grid-cols-2">
-              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 shadow-sm">
                 <div className="mb-5 flex items-center gap-2">
-                  <FileText className="h-5 w-5 text-slate-600" />
-                  <h2 className="text-lg font-semibold text-slate-900">
+                  <FileText className="h-5 w-5 text-[var(--color-text-secondary)]" />
+                  <h2 className="text-lg font-semibold text-[var(--color-text)]">
                     Review Settings
                   </h2>
                 </div>
@@ -281,25 +281,25 @@ KIF6遺伝子多型は心血管リスクの重要な予測因子として注目�
                 />
               </div>
 
-              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-6 shadow-sm">
                 <div className="mb-5 flex items-center justify-between">
-                  <h2 className="text-lg font-semibold text-slate-900">
+                  <h2 className="text-lg font-semibold text-[var(--color-text)]">
                     Generated Review
                   </h2>
                   <div className="flex items-center gap-2">
                     {review && (
-                      <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-700">
+                      <span className="rounded-full bg-[var(--color-success)]/20 px-3 py-1 text-xs font-semibold text-[var(--color-success)]">
                         ✓ 完了
                       </span>
                     )}
                     {review && (
-                      <div className="flex rounded-lg border border-slate-200">
+                      <div className="flex rounded-lg border border-[var(--color-border)]">
                         <button
                           onClick={() => setViewMode("edit")}
                           className={`flex items-center gap-1 px-3 py-1 text-xs font-medium transition-colors ${
                             viewMode === "edit"
-                              ? "bg-slate-100 text-slate-900"
-                              : "text-slate-600 hover:bg-slate-50"
+                              ? "bg-[var(--color-background)] text-[var(--color-text)]"
+                              : "text-[var(--color-text-secondary)] hover:bg-[var(--color-background)]"
                           }`}
                         >
                           <Edit3 className="h-3 w-3" />
@@ -309,8 +309,8 @@ KIF6遺伝子多型は心血管リスクの重要な予測因子として注目�
                           onClick={() => setViewMode("preview")}
                           className={`flex items-center gap-1 px-3 py-1 text-xs font-medium transition-colors ${
                             viewMode === "preview"
-                              ? "bg-slate-100 text-slate-900"
-                              : "text-slate-600 hover:bg-slate-50"
+                              ? "bg-[var(--color-background)] text-[var(--color-text)]"
+                              : "text-[var(--color-text-secondary)] hover:bg-[var(--color-background)]"
                           }`}
                         >
                           <Eye className="h-3 w-3" />
@@ -320,8 +320,8 @@ KIF6遺伝子多型は心血管リスクの重要な予測因子として注目�
                           onClick={() => setViewMode("split")}
                           className={`flex items-center gap-1 px-3 py-1 text-xs font-medium transition-colors ${
                             viewMode === "split"
-                              ? "bg-slate-100 text-slate-900"
-                              : "text-slate-600 hover:bg-slate-50"
+                              ? "bg-[var(--color-background)] text-[var(--color-text)]"
+                              : "text-[var(--color-text-secondary)] hover:bg-[var(--color-background)]"
                           }`}
                         >
                           <FileText className="h-3 w-3" />
@@ -461,7 +461,7 @@ KIF6遺伝子多型は心血管リスクの重要な予測因子として注目�
           </section>
 
           {!review && (
-            <section className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+            <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-8 shadow-sm">
               <h3 className="text-center text-lg font-semibold text-slate-900">
                 おすすめの研究トピック例
               </h3>

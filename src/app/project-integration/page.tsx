@@ -18,6 +18,9 @@ import {
   Home,
   BookOpen,
   Network,
+  Tag,
+  X,
+  Filter,
 } from "lucide-react";
 import MarkdownRenderer from "@/components/library/MarkdownRenderer";
 
@@ -51,6 +54,8 @@ export default function ProjectIntegration() {
   const [selectedPapers, setSelectedPapers] = useState<any[]>([]);
   const [showPaperSelector, setShowPaperSelector] = useState(false);
   const [savingAnalysis, setSavingAnalysis] = useState(false);
+  const [paperSearchQuery, setPaperSearchQuery] = useState("");
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
   // プロジェクト一覧を取得
   useEffect(() => {
@@ -662,41 +667,41 @@ The content will be tailored to the specific requirements of the ${type} section
   };
 
   return (
-    <div className="relative h-screen bg-slate-100 text-slate-800 overflow-hidden">
+    <div className="relative h-screen bg-[var(--color-background)] text-[var(--color-text)] overflow-hidden">
       <header
-        className="fixed top-0 left-0 right-0 z-[99999] border-b border-slate-200 bg-white shadow-sm"
+        className="fixed top-0 left-0 right-0 z-[99999] border-b border-[var(--color-border)] bg-[var(--color-surface)] shadow-sm"
         style={{ zIndex: 99999 }}
       >
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-4">
           <div className="flex items-center gap-6">
-            <h1 className="text-xl font-semibold text-slate-900">
+            <h1 className="text-xl font-semibold text-[var(--color-text)]">
               プロジェクト連携論文執筆ツール
             </h1>
             <nav className="flex items-center gap-4">
               <Link
                 href="/"
-                className="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900"
+                className="inline-flex items-center gap-2 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text)]"
               >
                 <Home className="h-4 w-4" />
                 <span>ホーム</span>
               </Link>
               <Link
                 href="/search"
-                className="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900"
+                className="inline-flex items-center gap-2 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text)]"
               >
                 <Search className="h-4 w-4" />
                 <span>検索</span>
               </Link>
               <Link
                 href="/library"
-                className="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900"
+                className="inline-flex items-center gap-2 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text)]"
               >
                 <BookOpen className="h-4 w-4" />
                 <span>ライブラリ</span>
               </Link>
               <Link
                 href="/tools/citation-map"
-                className="inline-flex items-center gap-2 text-sm text-slate-600 hover:text-slate-900"
+                className="inline-flex items-center gap-2 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text)]"
               >
                 <Network className="h-4 w-4" />
                 <span>Citation Map</span>
@@ -708,19 +713,19 @@ The content will be tailored to the specific requirements of the ${type} section
 
       <main className="mx-auto w-full max-w-6xl px-6 py-6 pt-24 h-full overflow-y-auto">
         <div className="mb-8">
-          <p className="text-slate-600">
+          <p className="text-[var(--color-text-secondary)]">
             研究プロジェクトと連携して、研究ギャップ分析と論文執筆をサポートします
           </p>
         </div>
 
         <div className="space-y-8">
           {/* プロジェクト選択 */}
-          <section className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+          <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-8 shadow-sm">
             <div className="mb-6">
-              <h2 className="text-xl font-semibold text-slate-900 mb-2">
+              <h2 className="text-xl font-semibold text-[var(--color-text)] mb-2">
                 研究プロジェクト選択
               </h2>
-              <p className="text-sm text-slate-600">
+              <p className="text-sm text-[var(--color-text-secondary)]">
                 連携する研究プロジェクトを選択してください
               </p>
             </div>
@@ -732,25 +737,25 @@ The content will be tailored to the specific requirements of the ${type} section
                   onClick={() => setSelectedProject(project)}
                   className={`p-4 rounded-lg border cursor-pointer transition-colors ${
                     selectedProject?.name === project.name
-                      ? "border-blue-500 bg-blue-50"
-                      : "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
+                      ? "border-[var(--color-primary)] bg-[var(--color-primary)]/15"
+                      : "border-[var(--color-border)] hover:border-[var(--color-primary)]/40 hover:bg-[var(--color-background)]"
                   }`}
                 >
                   <div className="flex items-center gap-3 mb-2">
-                    <FolderOpen className="h-5 w-5 text-slate-600" />
-                    <h3 className="font-medium text-slate-900">
+                    <FolderOpen className="h-5 w-5 text-[var(--color-text-secondary)]" />
+                    <h3 className="font-medium text-[var(--color-text)]">
                       {project.name}
                     </h3>
                     {selectedProject?.name === project.name && (
-                      <CheckCircle className="h-4 w-4 text-blue-500" />
+                      <CheckCircle className="h-4 w-4 text-[var(--color-primary)]" />
                     )}
                   </div>
                   {project.description && (
-                    <p className="text-sm text-slate-600 mb-2">
+                    <p className="text-sm text-[var(--color-text-secondary)] mb-2">
                       {project.description}
                     </p>
                   )}
-                  <div className="flex items-center gap-2 text-xs text-slate-500">
+                  <div className="flex items-center gap-2 text-xs text-[var(--color-text-secondary)]">
                     <span>
                       最終更新:{" "}
                       {new Date(project.lastModified).toLocaleDateString(
@@ -767,19 +772,19 @@ The content will be tailored to the specific requirements of the ${type} section
           </section>
 
           {/* 研究トピック入力 */}
-          <section className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+          <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-8 shadow-sm">
             <div className="mb-6">
-              <h2 className="text-xl font-semibold text-slate-900 mb-2">
+              <h2 className="text-xl font-semibold text-[var(--color-text)] mb-2">
                 研究トピックとコンテキスト
               </h2>
-              <p className="text-sm text-slate-600">
+              <p className="text-sm text-[var(--color-text-secondary)]">
                 研究トピックとプロジェクトの詳細を入力してください
               </p>
             </div>
 
             <div className="space-y-6">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
+                <label className="block text-sm font-medium text-[var(--color-text)] mb-2">
                   研究トピック *
                 </label>
                 <input
@@ -787,12 +792,12 @@ The content will be tailored to the specific requirements of the ${type} section
                   value={topic}
                   onChange={(e) => setTopic(e.target.value)}
                   placeholder="例: KIF6遺伝子多型と心血管リスクの関連性"
-                  className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full p-3 border border-[var(--color-border)] rounded-lg bg-[var(--color-background)] text-[var(--color-text)] focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-2">
+                <label className="block text-sm font-medium text-[var(--color-text)] mb-2">
                   プロジェクトコンテキスト
                 </label>
                 <textarea
@@ -800,14 +805,14 @@ The content will be tailored to the specific requirements of the ${type} section
                   onChange={(e) => setProjectContext(e.target.value)}
                   rows={4}
                   placeholder="プロジェクトの詳細、使用している手法、既存のデータなどを記述してください"
-                  className="w-full p-3 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  className="w-full p-3 border border-[var(--color-border)] rounded-lg bg-[var(--color-background)] text-[var(--color-text)] focus:ring-2 focus:ring-[var(--color-primary)] focus:border-transparent"
                 />
               </div>
 
               <button
                 onClick={analyzeGaps}
                 disabled={analysisLoading || !topic.trim()}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 px-4 py-2 bg-[var(--color-primary)] text-[var(--color-surface)] rounded-lg hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Search className="h-4 w-4" />
                 {analysisLoading ? "分析中..." : "研究ギャップ分析を実行"}
@@ -816,25 +821,25 @@ The content will be tailored to the specific requirements of the ${type} section
           </section>
 
           {/* ライブラリ論文選択 */}
-          <section className="rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+          <section className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-surface)] p-8 shadow-sm">
             <div className="mb-6">
-              <h2 className="text-xl font-semibold text-slate-900 mb-2">
+              <h2 className="text-xl font-semibold text-[var(--color-text)] mb-2">
                 分析対象論文の選択
               </h2>
-              <p className="text-sm text-slate-600">
+              <p className="text-sm text-[var(--color-text-secondary)]">
                 ライブラリから研究ギャップ分析に使用する論文を選択してください
               </p>
             </div>
 
             <div className="space-y-4">
               <div className="flex items-center justify-between">
-                <div className="text-sm text-slate-600">
+                <div className="text-sm text-[var(--color-text-secondary)]">
                   選択済み: {selectedPapers.length}件 / ライブラリ総数:{" "}
                   {libraryPapers.length}件
                 </div>
                 <button
                   onClick={() => setShowPaperSelector(!showPaperSelector)}
-                  className="flex items-center gap-2 px-3 py-1 text-sm text-blue-600 hover:text-blue-800 hover:bg-blue-50 rounded-md transition-colors"
+                  className="flex items-center gap-2 px-3 py-1 text-sm text-[var(--color-primary)] hover:text-[var(--color-primary)]/80 hover:bg-[var(--color-primary)]/10 rounded-md transition-colors"
                 >
                   <Eye className="h-4 w-4" />
                   {showPaperSelector ? "選択を閉じる" : "論文を選択"}
@@ -842,63 +847,209 @@ The content will be tailored to the specific requirements of the ${type} section
               </div>
 
               {showPaperSelector && (
-                <div className="border border-slate-200 rounded-lg p-4 max-h-64 overflow-y-auto">
-                  <div className="space-y-2">
-                    {libraryPapers.map((paper) => (
-                      <div
-                        key={paper.id}
-                        className={`p-3 rounded-lg border cursor-pointer transition-colors ${
-                          selectedPapers.some((p) => p.id === paper.id)
-                            ? "border-blue-500 bg-blue-50"
-                            : "border-slate-200 hover:border-slate-300 hover:bg-slate-50"
-                        }`}
-                        onClick={() => {
-                          if (selectedPapers.some((p) => p.id === paper.id)) {
-                            setSelectedPapers((prev) =>
-                              prev.filter((p) => p.id !== paper.id)
-                            );
-                          } else {
-                            setSelectedPapers((prev) => [...prev, paper]);
-                          }
-                        }}
-                      >
-                        <div className="flex items-start gap-3">
-                          <div
-                            className={`w-4 h-4 rounded border-2 mt-1 ${
-                              selectedPapers.some((p) => p.id === paper.id)
-                                ? "bg-blue-500 border-blue-500"
-                                : "border-slate-300"
-                            }`}
-                          >
-                            {selectedPapers.some((p) => p.id === paper.id) && (
-                              <CheckCircle className="w-4 h-4 text-white" />
+                <div className="border border-[var(--color-border)] rounded-lg p-4 bg-[var(--color-surface)]">
+                  {/* 検索とフィルター */}
+                  <div className="mb-4 space-y-3">
+                    {/* 検索バー */}
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-text-secondary)]" />
+                      <input
+                        type="text"
+                        placeholder="論文を検索... (タイトル、著者、要約)"
+                        value={paperSearchQuery}
+                        onChange={(e) => setPaperSearchQuery(e.target.value)}
+                        className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] pl-10 pr-4 py-2 text-sm text-[var(--color-text)] focus:border-[var(--color-primary)] focus:outline-none"
+                      />
+                      {paperSearchQuery && (
+                        <button
+                          onClick={() => setPaperSearchQuery("")}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-text-secondary)] hover:text-[var(--color-text)]"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+
+                    {/* タグフィルター */}
+                    {(() => {
+                      // すべての論文からタグを収集
+                      const allTags = new Set<string>();
+                      libraryPapers.forEach((paper) => {
+                        if (paper.tags && Array.isArray(paper.tags)) {
+                          paper.tags.forEach((tag: string) => allTags.add(tag));
+                        }
+                      });
+                      const availableTags = Array.from(allTags).sort();
+
+                      if (availableTags.length > 0) {
+                        return (
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2 text-xs font-medium text-[var(--color-text-secondary)]">
+                              <Tag className="h-3 w-3" />
+                              <span>タグで絞り込み:</span>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              {availableTags.map((tag) => (
+                                <button
+                                  key={tag}
+                                  onClick={() => {
+                                    if (selectedTags.includes(tag)) {
+                                      setSelectedTags((prev) =>
+                                        prev.filter((t) => t !== tag)
+                                      );
+                                    } else {
+                                      setSelectedTags((prev) => [...prev, tag]);
+                                    }
+                                  }}
+                                  className={`px-2 py-1 rounded-md text-xs font-medium transition-colors ${
+                                    selectedTags.includes(tag)
+                                      ? "bg-[var(--color-primary)] text-[var(--color-surface)]"
+                                      : "bg-[var(--color-background)] text-[var(--color-text-secondary)] border border-[var(--color-border)] hover:border-[var(--color-primary)]/50"
+                                  }`}
+                                >
+                                  {tag}
+                                </button>
+                              ))}
+                            </div>
+                            {selectedTags.length > 0 && (
+                              <button
+                                onClick={() => setSelectedTags([])}
+                                className="text-xs text-[var(--color-primary)] hover:underline flex items-center gap-1"
+                              >
+                                <X className="h-3 w-3" />
+                                すべてのタグを解除
+                              </button>
                             )}
                           </div>
-                          <div className="flex-1">
-                            <h3 className="font-medium text-slate-900 text-sm mb-1">
-                              {paper.title}
-                            </h3>
-                            <p className="text-xs text-slate-600 mb-1">
-                              {Array.isArray(paper.authors)
-                                ? paper.authors
-                                    .map((author: any) => author.name || author)
-                                    .join(", ")
-                                : paper.authors || "著者不明"}
-                            </p>
-                            <p className="text-xs text-slate-500">
-                              {paper.year} • {paper.venue}
-                            </p>
+                        );
+                      }
+                      return null;
+                    })()}
+                  </div>
+
+                  {/* フィルタリングされた論文リスト */}
+                  <div className="max-h-64 overflow-y-auto space-y-2">
+                    {(() => {
+                      // フィルタリングロジック
+                      let filteredPapers = libraryPapers;
+
+                      // 検索ワードでフィルタリング
+                      if (paperSearchQuery.trim()) {
+                        const query = paperSearchQuery.toLowerCase();
+                        filteredPapers = filteredPapers.filter((paper) => {
+                          const title = (paper.title || "").toLowerCase();
+                          const authors = Array.isArray(paper.authors)
+                            ? paper.authors
+                                .map((author: any) =>
+                                  typeof author === "string"
+                                    ? author
+                                    : author.name || ""
+                                )
+                                .join(" ")
+                            : (paper.authors || "").toLowerCase();
+                          const abstract = (paper.abstract || "").toLowerCase();
+                          const venue = (paper.venue || "").toLowerCase();
+
+                          return (
+                            title.includes(query) ||
+                            authors.includes(query) ||
+                            abstract.includes(query) ||
+                            venue.includes(query)
+                          );
+                        });
+                      }
+
+                      // タグでフィルタリング
+                      if (selectedTags.length > 0) {
+                        filteredPapers = filteredPapers.filter((paper) => {
+                          if (!paper.tags || !Array.isArray(paper.tags)) {
+                            return false;
+                          }
+                          return selectedTags.some((tag) =>
+                            paper.tags.includes(tag)
+                          );
+                        });
+                      }
+
+                      if (filteredPapers.length === 0) {
+                        return (
+                          <div className="text-center py-8 text-sm text-[var(--color-text-secondary)]">
+                            {paperSearchQuery || selectedTags.length > 0
+                              ? "条件に一致する論文が見つかりませんでした"
+                              : "ライブラリに論文がありません"}
+                          </div>
+                        );
+                      }
+
+                      return filteredPapers.map((paper) => (
+                        <div
+                          key={paper.id}
+                          className={`p-3 rounded-lg border cursor-pointer transition-colors ${
+                            selectedPapers.some((p) => p.id === paper.id)
+                              ? "border-[var(--color-primary)] bg-[var(--color-primary)]/15"
+                              : "border-[var(--color-border)] hover:border-[var(--color-primary)]/30 hover:bg-[var(--color-background)]"
+                          }`}
+                          onClick={() => {
+                            if (selectedPapers.some((p) => p.id === paper.id)) {
+                              setSelectedPapers((prev) =>
+                                prev.filter((p) => p.id !== paper.id)
+                              );
+                            } else {
+                              setSelectedPapers((prev) => [...prev, paper]);
+                            }
+                          }}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div
+                              className={`w-4 h-4 rounded border-2 mt-1 ${
+                                selectedPapers.some((p) => p.id === paper.id)
+                                  ? "bg-[var(--color-primary)] border-[var(--color-primary)]"
+                                  : "border-[var(--color-border)]"
+                              }`}
+                            >
+                              {selectedPapers.some((p) => p.id === paper.id) && (
+                                <CheckCircle className="w-4 h-4 text-white" />
+                              )}
+                            </div>
+                            <div className="flex-1">
+                              <h3 className="font-medium text-[var(--color-text)] text-sm mb-1">
+                                {paper.title}
+                              </h3>
+                              <p className="text-xs text-[var(--color-text-secondary)] mb-1">
+                                {Array.isArray(paper.authors)
+                                  ? paper.authors
+                                      .map((author: any) => author.name || author)
+                                      .join(", ")
+                                  : paper.authors || "著者不明"}
+                              </p>
+                              <p className="text-xs text-[var(--color-text-secondary)]">
+                                {paper.year} • {paper.venue}
+                              </p>
+                              {/* タグ表示 */}
+                              {paper.tags && Array.isArray(paper.tags) && paper.tags.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-1">
+                                  {paper.tags.map((tag: string, idx: number) => (
+                                    <span
+                                      key={idx}
+                                      className="px-1.5 py-0.5 bg-[var(--color-primary)]/10 text-[var(--color-primary)] rounded text-[10px]"
+                                    >
+                                      {tag}
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      ));
+                    })()}
                   </div>
                 </div>
               )}
 
               {selectedPapers.length > 0 && (
-                <div className="bg-slate-50 rounded-lg p-3">
-                  <h4 className="text-sm font-medium text-slate-900 mb-2">
+                <div className="bg-[var(--color-background)] rounded-lg p-3">
+                  <h4 className="text-sm font-medium text-[var(--color-text)] mb-2">
                     選択された論文:
                   </h4>
                   <div className="space-y-1">
@@ -907,14 +1058,16 @@ The content will be tailored to the specific requirements of the ${type} section
                         key={paper.id}
                         className="flex items-center justify-between text-xs"
                       >
-                        <span className="text-slate-700">{paper.title}</span>
+                        <span className="text-[var(--color-text-secondary)]">
+                          {paper.title}
+                        </span>
                         <button
                           onClick={() =>
                             setSelectedPapers((prev) =>
                               prev.filter((p) => p.id !== paper.id)
                             )
                           }
-                          className="text-red-600 hover:text-red-800"
+                          className="text-[var(--color-error)] hover:opacity-80"
                         >
                           削除
                         </button>

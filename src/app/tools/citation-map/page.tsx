@@ -12,14 +12,65 @@ function CitationMapPageContent() {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [libraryPapers, setLibraryPapers] = useState<Set<string>>(new Set());
 
-  // URLパラメータからDOIを取得して自動的にCitation Mapを生成
+  // ライブラリの論文を先に取得（Citation Map表示前に実行）
+  useEffect(() => {
+    const fetchLibraryPapers = async () => {
+      try {
+        const response = await fetch("/api/library?userId=demo-user-123");
+        if (response.ok) {
+          const data = await response.json();
+          if (data.success && data.papers) {
+            // paper_id（Semantic Scholar ID）を取得
+            // 注意: p.idはUUID、p.paper_idまたはp.paperIdがSemantic Scholar ID
+            const paperIds = new Set<string>(
+              data.papers
+                .map((p: any) => {
+                  // paper_idまたはpaperIdを優先（Semantic Scholar ID）
+                  const semanticId = p.paper_id || p.paperId;
+                  return semanticId ? String(semanticId) : null;
+                })
+                .filter(Boolean)
+            );
+            console.log("Fetched library papers (parent, Semantic Scholar IDs):", Array.from(paperIds));
+            console.log("Sample paper from library (parent):", data.papers[0] ? {
+              id: data.papers[0].id, // UUID
+              paper_id: data.papers[0].paper_id, // Semantic Scholar ID
+              paperId: data.papers[0].paperId, // マッピングされたSemantic Scholar ID
+              title: data.papers[0].title?.substring(0, 50)
+            } : "No papers");
+            setLibraryPapers(paperIds);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch library papers:", error);
+      }
+    };
+
+    fetchLibraryPapers();
+  }, []);
+
+  // URLパラメータからDOI、HTML URL、paperId、または検索クエリを取得して自動的にCitation Mapを生成
   useEffect(() => {
     const doiParam = searchParams.get("doi");
-    if (doiParam) {
+    const htmlParam = searchParams.get("html");
+    const paperIdParam = searchParams.get("paperId");
+    const searchParam = searchParams.get("search");
+    
+    if (paperIdParam) {
+      // paperIdから直接Citation Mapを生成
+      handleGenerateWithPaperId(paperIdParam);
+    } else if (doiParam) {
       setDoi(doiParam);
       // 自動的にCitation Mapを生成
       handleGenerateWithDoi(doiParam);
+    } else if (htmlParam) {
+      // HTML URLからDOIを抽出するか、HTML URLで直接検索
+      handleGenerateWithHtml(htmlParam);
+    } else if (searchParam) {
+      // 検索クエリから論文を検索してCitation Mapを生成
+      handleGenerateWithSearch(searchParam);
     }
   }, [searchParams]);
 
@@ -37,6 +88,87 @@ function CitationMapPageContent() {
       const data = await res.json();
       if (!res.ok || !data.success) throw new Error(data.error || "Failed");
       setResult(data);
+    } catch (e: any) {
+      setError(e.message || "エラーが発生しました");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGenerateWithHtml = async (htmlUrl: string) => {
+    if (!htmlUrl.trim()) return;
+    setLoading(true);
+    setError(null);
+    setResult(null);
+    try {
+      const res = await fetch("/api/citation-map", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ paperHTML: htmlUrl.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || "Failed");
+      setResult(data);
+      // DOIが取得できた場合は表示用に設定
+      if (data.doi) {
+        setDoi(data.doi);
+      }
+    } catch (e: any) {
+      setError(e.message || "エラーが発生しました");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGenerateWithSearch = async (searchQuery: string) => {
+    if (!searchQuery.trim()) return;
+    setLoading(true);
+    setError(null);
+    setResult(null);
+    try {
+      const res = await fetch("/api/citation-map", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ paperSearch: searchQuery.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || "Failed");
+      setResult(data);
+      // DOIが取得できた場合は表示用に設定
+      if (data.doi) {
+        setDoi(data.doi);
+      }
+    } catch (e: any) {
+      setError(e.message || "エラーが発生しました");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGenerateWithPaperId = async (paperId: string) => {
+    if (!paperId.trim()) return;
+    setLoading(true);
+    setError(null);
+    setResult(null);
+    try {
+      const res = await fetch("/api/citation-map", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ paperId: paperId.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        let errorMsg = data.error || "Failed";
+        if (data.suggestion) {
+          errorMsg += `\n\n${data.suggestion}`;
+        }
+        throw new Error(errorMsg);
+      }
+      setResult(data);
+      // DOIが取得できた場合は表示用に設定
+      if (data.doi) {
+        setDoi(data.doi);
+      }
     } catch (e: any) {
       setError(e.message || "エラーが発生しました");
     } finally {
@@ -143,7 +275,10 @@ function CitationMapPageContent() {
                   ノード: {result.stats?.totalNodes} / エッジ:{" "}
                   {result.stats?.totalEdges}
                 </div>
-                <CitationMapVisualization data={result.citationMap} />
+                <CitationMapVisualization 
+                  data={result.citationMap} 
+                  initialLibraryPapers={libraryPapers}
+                />
               </div>
 
               {/* 詳細データ */}

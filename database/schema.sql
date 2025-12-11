@@ -27,9 +27,14 @@ CREATE TABLE IF NOT EXISTS user_library (
   tags TEXT[] DEFAULT '{}',
   notes TEXT,
   pdf_url TEXT,
+  pdf_storage_path TEXT,
+  pdf_file_name TEXT,
   html_url TEXT,
   ai_summary JSONB,
   ai_summary_updated_at TIMESTAMP WITH TIME ZONE,
+  grobid_tei_xml TEXT,
+  grobid_data JSONB,
+  grobid_processed_at TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   UNIQUE(user_id, paper_id)
@@ -203,3 +208,6 @@ CREATE POLICY "Users can insert own jobs"
 CREATE POLICY "Users can update own jobs"
   ON library_pdf_processing_jobs FOR UPDATE
   USING (auth.uid()::text = user_id);
+
+
+

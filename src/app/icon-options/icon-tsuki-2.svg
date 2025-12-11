@@ -1,0 +1,15 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="32" height="32" rx="6" fill="#8B5CF6"/>
+  <!-- 「月」の左側の縦線（太め） -->
+  <path d="M11 7V25" stroke="white" stroke-width="3" stroke-linecap="round"/>
+  <!-- 「月」の右側の滑らかな曲線 -->
+  <path d="M11 7C13.5 7 16 8.5 18.5 10.5C21 12.5 22.5 14.5 22.5 16C22.5 17.5 21 19 18.5 20.5C16 22 13.5 23 11 23" stroke="white" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+  <path d="M11 23C13.5 23 16 24 18.5 25C21 26 22.5 25 22.5 25" stroke="white" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+  <!-- 装飾的な内側の曲線 -->
+  <path d="M11 11C13 11 15 12 17 13.5" stroke="white" stroke-width="1.5" stroke-linecap="round" fill="none" opacity="0.6"/>
+  <path d="M11 15C13 15 15 16.5 17 18" stroke="white" stroke-width="1.5" stroke-linecap="round" fill="none" opacity="0.6"/>
+  <path d="M11 19C13 19 15 20.5 17 22" stroke="white" stroke-width="1.5" stroke-linecap="round" fill="none" opacity="0.6"/>
+</svg>
+
+
+

@@ -1,10 +1,20 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { Toaster } from "react-hot-toast";
+import { ThemeProvider } from "@/contexts/ThemeContext";
 
 export const metadata: Metadata = {
-  title: "Research AI Tool - Improved",
-  description: "Advanced AI-powered research assistance platform",
+  title: "Tsukuyomi",
+  description: "AI を活用した次世代の研究支援プラットフォーム",
+  icons: {
+    icon: [
+      { url: "/icon.svg", type: "image/svg+xml" },
+      { url: "/icon.svg", type: "image/svg+xml", sizes: "32x32" },
+    ],
+    apple: [
+      { url: "/icon.svg", sizes: "180x180", type: "image/svg+xml" },
+    ],
+  },
 };
 
 export default function RootLayout({
@@ -14,9 +24,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ja">
-      <body className="min-h-screen bg-slate-100 text-slate-800">
-        {children}
-        <Toaster position="top-right" />
+      <body className="min-h-screen theme-synced">
+        <ThemeProvider>
+          {children}
+          <Toaster position="top-right" />
+        </ThemeProvider>
       </body>
     </html>
   );

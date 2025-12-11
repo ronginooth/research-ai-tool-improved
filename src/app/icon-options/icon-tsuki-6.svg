@@ -1,0 +1,20 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="32" height="32" rx="6" fill="#EC4899"/>
+  <!-- 「月」の左側の縦線（二重線） -->
+  <path d="M10.5 8V24" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+  <path d="M11.5 8V24" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.5"/>
+  <!-- 「月」の右側の滑らかな曲線 -->
+  <path d="M11 8C13.8 8 16.5 9.5 19 11.5C21.5 13.5 23 15.5 23 16.5C23 17.5 21.5 19 19 20.5C16.5 22 13.8 23 11 23" stroke="white" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+  <path d="M11 23C13.8 23.5 16.5 24.5 19 25.5C21.5 26.5 23 26 23 26" stroke="white" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+  <!-- 複数のページ曲線 -->
+  <path d="M11 10.5C13.2 10 15.5 11 18 12.5" stroke="white" stroke-width="1.8" stroke-linecap="round" fill="none" opacity="0.75"/>
+  <path d="M11 13.5C13.2 13 15.5 14 18 15.5" stroke="white" stroke-width="1.8" stroke-linecap="round" fill="none" opacity="0.75"/>
+  <path d="M11 16.5C13.2 16 15.5 17 18 18.5" stroke="white" stroke-width="1.8" stroke-linecap="round" fill="none" opacity="0.75"/>
+  <path d="M11 19.5C13.2 19 15.5 20 18 21.5" stroke="white" stroke-width="1.8" stroke-linecap="round" fill="none" opacity="0.75"/>
+  <!-- 装飾的な点 -->
+  <circle cx="19.5" cy="13.5" r="1" fill="white" fill-opacity="0.8"/>
+  <circle cx="20.5" cy="19.5" r="1" fill="white" fill-opacity="0.8"/>
+</svg>
+
+
+

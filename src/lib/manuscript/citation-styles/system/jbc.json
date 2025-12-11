@@ -1,0 +1,44 @@
+{
+  "id": "jbc",
+  "name": "JBC",
+  "displayName": "Journal of Biological Chemistry",
+  "isSystem": true,
+  "sort": {
+    "mode": "alphabetical",
+    "key": "firstAuthor.lastName"
+  },
+  "authorRules": {
+    "maxAuthors": 10,
+    "etAlAfter": 10,
+    "delimiter": ", ",
+    "finalDelimiter": ", ",
+    "format": "LastName FirstInitial"
+  },
+  "title": {
+    "include": true,
+    "case": "sentence",
+    "endPunctuation": "."
+  },
+  "journal": {
+    "useItalic": true,
+    "useVenue": true,
+    "fallbackAbbreviation": "J. Biol. Chem."
+  },
+  "volume": {
+    "useBold": true,
+    "includeIssue": false,
+    "format": "range",
+    "pageSeparator": "–"
+  },
+  "doi": {
+    "include": true,
+    "prefix": "doi:"
+  },
+  "year": {
+    "format": "parentheses"
+  },
+  "template": "{authors}. {title}. {journal} {volume}, {pages} ({year}). {doi}"
+}
+
+
+

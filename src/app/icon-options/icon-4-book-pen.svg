@@ -1,0 +1,17 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="32" height="32" rx="6" fill="#F59E0B"/>
+  <!-- Book -->
+  <path d="M8 9C8 7.89543 8.89543 7 10 7H20V23H10C8.89543 23 8 22.1046 8 21V9Z" fill="white" fill-opacity="0.2"/>
+  <!-- Pen -->
+  <path d="M20 10L24 14L22 16L18 12L20 10Z" fill="white" fill-opacity="0.9"/>
+  <path d="M18 12L22 16L20 18L16 14L18 12Z" fill="white" fill-opacity="0.7"/>
+  <path d="M20 10L24 14" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- Book lines -->
+  <path d="M10 12H19" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+  <path d="M10 15H19" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+  <!-- Book outline -->
+  <path d="M10 7H20V23H10C8.89543 23 8 22.1046 8 21V9C8 7.89543 8.89543 7 10 7Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+
+
+

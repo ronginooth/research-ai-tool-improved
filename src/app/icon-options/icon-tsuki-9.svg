@@ -1,0 +1,20 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="32" height="32" rx="6" fill="#14B8A6"/>
+  <!-- 「月」の左側の縦線（装飾的な太さ変化） -->
+  <path d="M11 7V25" stroke="white" stroke-width="2.8" stroke-linecap="round"/>
+  <!-- 「月」の右側の流れるような曲線 -->
+  <path d="M11 7C13.8 7 16.5 8.3 18.8 10.2C21.1 12.1 22.8 14.2 22.8 15.8C22.8 17.4 21.1 19.2 18.8 20.8C16.5 22.4 13.8 23.5 11 23.5" stroke="white" stroke-width="2.6" stroke-linecap="round" fill="none"/>
+  <path d="M11 23.5C13.8 24 16.5 25 18.8 26C21.1 27 22.8 26.8 22.8 26.8" stroke="white" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+  <!-- 有機的なページの曲線 -->
+  <path d="M11 9.5C13.2 9 15.5 10 17.8 11.5" stroke="white" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.75"/>
+  <path d="M11 12.8C13.2 12.3 15.5 13.3 17.8 14.8" stroke="white" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.75"/>
+  <path d="M11 16.1C13.2 15.6 15.5 16.6 17.8 18.1" stroke="white" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.75"/>
+  <path d="M11 19.4C13.2 18.9 15.5 19.9 17.8 21.4" stroke="white" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.75"/>
+  <!-- 装飾的な小さな円 -->
+  <circle cx="19" cy="12.5" r="1.2" fill="white" fill-opacity="0.7"/>
+  <circle cx="20" cy="17.5" r="1.2" fill="white" fill-opacity="0.7"/>
+  <circle cx="19.5" cy="22" r="1" fill="white" fill-opacity="0.7"/>
+</svg>
+
+
+

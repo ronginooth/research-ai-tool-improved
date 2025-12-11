@@ -36,15 +36,22 @@ export async function getUserSettings(
       .eq("user_id", userId)
       .single();
 
-    if (error && error.code !== "PGRST116") {
-      // PGRST116は"not found"エラー
-      console.error("Failed to fetch user settings:", error);
+    if (error) {
+      // PGRST116は"not found"エラー、PGRST205は"table not found"エラー
+      // どちらも正常なケース（テーブルが存在しない、またはレコードが存在しない）
+      if (error.code === "PGRST116" || error.code === "PGRST205") {
+        // テーブルが存在しない、またはレコードが見つからない場合は null を返す（エラーではない）
+        return null;
+      }
+      // その他のエラーはログに記録
+      console.warn("Failed to fetch user settings:", error);
       return null;
     }
 
     return data;
   } catch (error) {
-    console.error("Error fetching user settings:", error);
+    // テーブルが存在しない場合など、予期しないエラーも無視して null を返す
+    console.warn("Error fetching user settings (ignored):", error);
     return null;
   }
 }
@@ -98,10 +105,7 @@ export async function saveUserSettings(
 export function getUserSupabaseConfig(
   settings: UserSettings | null
 ): UserSupabaseConfig | undefined {
-  if (
-    !settings?.customSupabaseUrl ||
-    !settings?.customSupabaseAnonKey
-  ) {
+  if (!settings?.customSupabaseUrl || !settings?.customSupabaseAnonKey) {
     return undefined;
   }
 

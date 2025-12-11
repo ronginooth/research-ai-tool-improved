@@ -14,6 +14,8 @@ export async function POST(request: NextRequest) {
       filters,
       usePlanner = true,
       userId = "demo-user-123",
+      sources = ["semantic_scholar", "pubmed"], // ソース選択パラメータを追加
+      reviewOnly = false, // Review論文のみ検索（オプション）
     }: {
       topic: string;
       provider?: AIProvider;
@@ -21,6 +23,8 @@ export async function POST(request: NextRequest) {
       filters?: any;
       usePlanner?: boolean;
       userId?: string;
+      sources?: string[]; // ソース選択パラメータ
+      reviewOnly?: boolean; // Review論文のみ検索
     } = await request.json();
 
     if (!topic || topic.trim().length === 0) {
@@ -58,6 +62,11 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // ソースの配列を正規化
+    const requestedSources = Array.isArray(sources)
+      ? sources.map((s) => s.toLowerCase().replace(/\s+/g, "_"))
+      : ["semantic_scholar", "pubmed"];
+
     const searchOptions: SearchOptions = {
       query: topic,
       limit: maxPapers,
@@ -68,7 +77,7 @@ export async function POST(request: NextRequest) {
         },
         minCitations: 0,
         journalQuality: "all",
-        studyTypes: [],
+        studyTypes: reviewOnly ? ["review"] : [],
         methodologies: [],
         disciplines: [],
         authors: [],
@@ -77,7 +86,9 @@ export async function POST(request: NextRequest) {
         includeUserLibrary: false,
         excludeUserLibrary: false,
         specificCollections: [],
-        databases: ["semantic_scholar"],
+        databases: requestedSources.filter((s) =>
+          ["semantic_scholar", "pubmed"].includes(s)
+        ), // リクエストされたソースを使用（Semantic ScholarとPubMedのみサポート）
         internetFilter: "all",
       },
       plan,
@@ -165,6 +176,28 @@ export async function POST(request: NextRequest) {
     // 検索統計を取得
     const searchStats = advancedSearchEngine.getSearchStats(selectedPapers);
 
+    // ソース統計を計算
+    const sourceStats = [
+      {
+        source: "semantic_scholar",
+        fetched: rankedPapers.filter((p) => p.source === "semantic_scholar")
+          .length,
+        displayed: selectedPapers.filter(
+          (p) => p.source === "semantic_scholar"
+        ).length,
+      },
+      {
+        source: "pubmed",
+        fetched: rankedPapers.filter((p) => p.source === "pubmed").length,
+        displayed: selectedPapers.filter((p) => p.source === "pubmed").length,
+      },
+    ];
+
+    // searchLogicを構築
+    const searchedSources = requestedSources.filter((s) =>
+      ["semantic_scholar", "pubmed"].includes(s)
+    );
+
     return NextResponse.json({
       papers: selectedPapers,
       total: selectedPapers.length,
@@ -177,6 +210,13 @@ export async function POST(request: NextRequest) {
       stats: searchStats,
       provider: provider,
       plan,
+      sourceStats: sourceStats, // ソース統計を追加
+      searchLogic: {
+        originalQuery: topic.trim(),
+        translatedQuery: topic.trim(), // 高度な検索では内部で翻訳される
+        translationMethod: "none",
+        searchedSources: searchedSources,
+      },
     });
   } catch (error) {
     console.error("Advanced AI search error:", error);

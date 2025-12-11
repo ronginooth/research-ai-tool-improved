@@ -132,9 +132,30 @@ CREATE TABLE reviews (
 );
 ```
 
-### 4. 開発サーバーの起動
+### 4. GROBID のセットアップ（オプション - 高品質なPDF解析のため）
+
+GROBID を使用すると、PDF からより正確にテキストと構造を抽出できます。
+
+#### Docker を使用する場合（推奨）
 
 ```bash
+docker run -d --name grobid -p 8070:8070 lfoppiano/grobid:0.7.3
+```
+
+#### 環境変数の設定
+
+`.env.local` に以下を追加：
+
+```env
+GROBID_BASE_URL=http://localhost:8070
+```
+
+GROBID が利用できない場合は、既存の簡易 PDF 解析が自動的に使用されます。
+
+### 5. 開発サーバーの起動
+
+```bash
+npm install
 npm run dev
 ```
 
@@ -294,6 +315,70 @@ src/
 ## 📞 サポート
 
 質問や問題がある場合は、GitHub の Issues ページで報告してください。
+
+## 🚀 自動起動設定（macOS）
+
+macOSでシステム起動時に自動的に開発サーバーを起動するには、以下の手順を実行してください：
+
+### 1. 自動起動設定スクリプトを実行
+
+```bash
+cd Research/Projects/AnswerThis/research-ai-tool-improved
+bash setup-auto-start.sh
+```
+
+### 2. 設定内容
+
+このスクリプトは以下の設定を行います：
+
+- **LaunchAgentの作成**: `~/Library/LaunchAgents/com.research-ai-tool.dev.plist` を作成
+- **自動起動の有効化**: システム起動時に自動的に開発サーバーを起動
+- **ログファイルの設定**: `server.log` と `server-error.log` にログを出力
+
+### 3. サービスの管理
+
+自動起動設定後、以下のコマンドでサービスを管理できます：
+
+```bash
+# サービスを停止
+launchctl unload ~/Library/LaunchAgents/com.research-ai-tool.dev.plist
+
+# サービスを開始
+launchctl load ~/Library/LaunchAgents/com.research-ai-tool.dev.plist
+
+# サービス状態を確認
+launchctl list | grep research-ai-tool
+```
+
+### 4. 自動起動の無効化
+
+自動起動を無効化する場合は、以下のコマンドを実行してください：
+
+```bash
+launchctl unload ~/Library/LaunchAgents/com.research-ai-tool.dev.plist
+rm ~/Library/LaunchAgents/com.research-ai-tool.dev.plist
+```
+
+### 5. ログの確認
+
+サーバーのログは以下のファイルで確認できます：
+
+- **標準出力**: `server.log`
+- **エラー出力**: `server-error.log`
+
+```bash
+# ログをリアルタイムで確認
+tail -f server.log
+
+# エラーログを確認
+tail -f server-error.log
+```
+
+### 注意事項
+
+- 自動起動は次回のシステム再起動から有効になります
+- 現在のセッションですぐに起動したい場合は、手動で `npm run dev` を実行してください
+- `.env.local` ファイルが存在しない場合、自動起動は失敗します
 
 ---
 

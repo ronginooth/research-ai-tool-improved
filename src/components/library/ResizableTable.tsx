@@ -3,6 +3,8 @@
 import React, { useState, useRef, useCallback, useEffect } from "react";
 import type { LibraryPaper, Paper } from "@/types";
 import TagManager from "@/components/library/TagManager";
+import PaperCardMenu from "@/components/library/PaperCardMenu";
+import { Star, CheckSquare, Square } from "lucide-react";
 
 // ResizableTableで使用する最小限のプロパティを持つ型
 type TablePaper = Paper | LibraryPaper;
@@ -14,6 +16,10 @@ interface ResizableTableProps {
   onRemoveTag: (paperId: string, tag: string) => void;
   onCreateTag: (tag: string) => void;
   availableTags: string[];
+  onToggleFavorite?: (paperId: string, currentFavorite: boolean) => void;
+  onDelete?: (paperId: string) => void;
+  selectedPaperIds?: Set<string>;
+  onTogglePaperSelection?: (paperId: string) => void;
 }
 
 export default function ResizableTable({
@@ -23,6 +29,10 @@ export default function ResizableTable({
   onRemoveTag,
   onCreateTag,
   availableTags,
+  onToggleFavorite,
+  onDelete,
+  selectedPaperIds = new Set(),
+  onTogglePaperSelection,
 }: ResizableTableProps) {
   const [columnWidths, setColumnWidths] = useState({
     title: 50, // デフォルトでタイトルを広く
@@ -85,20 +95,70 @@ export default function ResizableTable({
 
   const renderPaperTableRow = (paper: TablePaper) => {
     const hasAiSummary = Boolean((paper as any)?.aiSummary ?? (paper as any)?.ai_summary);
+    const isFavorite = (paper as any)?.is_favorite ?? (paper as any)?.isFavorite ?? false;
+    const isSelected = selectedPaperIds.has(paper.id);
 
     return (
       <tr
         key={paper.id}
-        onClick={() => onSelectPaper(paper)}
-        className="cursor-pointer border-b border-slate-100 hover:bg-slate-50"
+        className={`group relative border-b border-[var(--color-border)]/60 hover:bg-[var(--color-background)]/80 ${
+          isSelected ? "bg-[var(--color-primary)]/5" : ""
+        }`}
       >
-        <td className="p-3" style={{ width: `${columnWidths.title}%` }}>
-          <div className="font-medium text-slate-900 line-clamp-2">
+        {/* チェックボックス */}
+        {onTogglePaperSelection && (
+          <td className="p-3 w-8">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onTogglePaperSelection(paper.id);
+              }}
+              className="flex items-center justify-center rounded border-2 border-[var(--color-border)] bg-[var(--color-surface)] p-1 hover:bg-[var(--color-background)] transition-colors"
+            >
+              {isSelected ? (
+                <CheckSquare className="h-4 w-4 text-[var(--color-primary)]" />
+              ) : (
+                <Square className="h-4 w-4 text-[var(--color-text-secondary)]" />
+              )}
+            </button>
+          </td>
+        )}
+        {/* 左端メニューボタン */}
+        {onToggleFavorite && onDelete && (
+          <td className="relative p-3 w-8 group">
+            <PaperCardMenu
+              paperId={paper.id}
+              isFavorite={isFavorite}
+              onToggleFavorite={onToggleFavorite}
+              onDelete={onDelete}
+              position="left"
+              paper={{
+                doi: (paper as any)?.doi || null,
+                htmlUrl: (paper as any)?.htmlUrl || (paper as any)?.html_url || null,
+                url: (paper as any)?.url || paper.url || null,
+                title: paper.title || null,
+                authors: paper.authors || null,
+                year: paper.year || null,
+              }}
+            />
+            {isFavorite && (
+              <div className="absolute right-1 top-1/2 -translate-y-1/2">
+                <Star className="h-3 w-3 fill-yellow-400 text-yellow-400" />
+              </div>
+            )}
+          </td>
+        )}
+        <td
+          className="p-3 cursor-pointer"
+          style={{ width: `${columnWidths.title}%` }}
+          onClick={() => onSelectPaper(paper)}
+        >
+          <div className="font-medium text-[var(--color-text)] line-clamp-2">
             {paper.title}
           </div>
         </td>
         <td
-          className="p-3 text-sm text-slate-600"
+          className="p-3 text-sm text-[var(--color-text-secondary)]"
           style={{ width: `${columnWidths.authors}%` }}
         >
           <div className="truncate" title={paper.authors || "著者情報なし"}>
@@ -108,13 +168,13 @@ export default function ResizableTable({
           </div>
         </td>
         <td
-          className="p-3 text-sm text-slate-600"
+          className="p-3 text-sm text-[var(--color-text-secondary)]"
           style={{ width: `${columnWidths.year}%` }}
         >
           {paper.year || "-"}
         </td>
         <td
-          className="p-3 text-sm text-slate-600"
+          className="p-3 text-sm text-[var(--color-text-secondary)]"
           style={{ width: `${columnWidths.venue}%` }}
         >
           <div className="truncate" title={paper.venue || "-"}>
@@ -122,7 +182,7 @@ export default function ResizableTable({
           </div>
         </td>
         <td
-          className="p-3 text-sm text-slate-600"
+          className="p-3 text-sm text-[var(--color-text-secondary)]"
           style={{ width: `${columnWidths.citationCount}%` }}
         >
           {(paper as any)?.citation_count ?? paper.citationCount ?? "-"}
@@ -136,16 +196,38 @@ export default function ResizableTable({
             onRemoveTag={onRemoveTag}
             onCreateTag={onCreateTag}
             className="min-w-32"
+            allPapers={papers}
           />
         </td>
         <td className="p-3" style={{ width: `${columnWidths.aiSummary}%` }}>
-          {hasAiSummary ? (
-            <span className="rounded-full bg-green-100 px-2 py-1 text-xs text-green-700">
-              あり
-            </span>
-          ) : (
-            <span className="text-slate-400">-</span>
-          )}
+          {(() => {
+            const aiSummary = (paper as any)?.aiSummary ?? (paper as any)?.ai_summary;
+            const summaries = aiSummary?.summaries || {};
+            const tldr = summaries.tldr;
+            
+            if (tldr) {
+              return (
+                <div className="max-w-xs">
+                  <div className="text-xs font-semibold text-[var(--color-text)] mb-1">
+                    TL;DR
+                  </div>
+                  <div className="text-xs text-[var(--color-text-secondary)] line-clamp-2">
+                    {tldr}
+                  </div>
+                </div>
+              );
+            }
+            
+            if (hasAiSummary) {
+              return (
+                <span className="rounded-full bg-[var(--color-success)]/20 px-2 py-1 text-xs text-[var(--color-success)]">
+                  あり
+                </span>
+              );
+            }
+            
+            return <span className="text-[var(--color-text-secondary)]/60">-</span>;
+          })()}
         </td>
       </tr>
     );
@@ -154,7 +236,7 @@ export default function ResizableTable({
   return (
     <div className="overflow-x-auto">
       {/* デバッグ用の幅表示 */}
-      <div className="mb-2 text-xs text-slate-500">
+      <div className="mb-2 text-xs text-[var(--color-text-secondary)]/80">
         現在の幅: タイトル{columnWidths.title}% | 著者{columnWidths.authors}% |
         年{columnWidths.year}% | ジャーナル{columnWidths.venue}% | 引用数
         {columnWidths.citationCount}% | タグ{columnWidths.tags}% | AI解説
@@ -166,14 +248,24 @@ export default function ResizableTable({
         style={{ minWidth: "800px" }}
       >
         <thead>
-          <tr className="border-b border-slate-200">
+          <tr className="border-b border-[var(--color-border)]">
+            {onTogglePaperSelection && (
+              <th className="p-3 text-left text-xs font-semibold text-[var(--color-text-secondary)] w-8">
+                {/* チェックボックス列のヘッダー */}
+              </th>
+            )}
+            {onToggleFavorite && onDelete && (
+              <th className="p-3 text-left text-xs font-semibold text-[var(--color-text-secondary)] w-8">
+                {/* メニュー列のヘッダー */}
+              </th>
+            )}
             <th
-              className="p-3 text-left text-xs font-semibold text-slate-600 relative"
+              className="p-3 text-left text-xs font-semibold text-[var(--color-text-secondary)] relative"
               style={{ width: `${columnWidths.title}%` }}
             >
               タイトル
               <div
-                className="absolute right-0 top-0 h-full w-2 cursor-col-resize bg-transparent hover:bg-blue-300 transition-colors"
+                className="absolute right-0 top-0 h-full w-2 cursor-col-resize bg-transparent hover:bg-[var(--color-primary)]/30 transition-colors"
                 onMouseDown={(e) => {
                   e.preventDefault();
                   handleMouseDown("title");
@@ -181,12 +273,12 @@ export default function ResizableTable({
               />
             </th>
             <th
-              className="p-3 text-left text-xs font-semibold text-slate-600 relative"
+              className="p-3 text-left text-xs font-semibold text-[var(--color-text-secondary)] relative"
               style={{ width: `${columnWidths.authors}%` }}
             >
               著者
               <div
-                className="absolute right-0 top-0 h-full w-2 cursor-col-resize bg-transparent hover:bg-blue-300 transition-colors"
+                className="absolute right-0 top-0 h-full w-2 cursor-col-resize bg-transparent hover:bg-[var(--color-primary)]/30 transition-colors"
                 onMouseDown={(e) => {
                   e.preventDefault();
                   handleMouseDown("authors");
@@ -194,12 +286,12 @@ export default function ResizableTable({
               />
             </th>
             <th
-              className="p-3 text-left text-xs font-semibold text-slate-600 relative"
+              className="p-3 text-left text-xs font-semibold text-[var(--color-text-secondary)] relative"
               style={{ width: `${columnWidths.year}%` }}
             >
               年
               <div
-                className="absolute right-0 top-0 h-full w-2 cursor-col-resize bg-transparent hover:bg-blue-300 transition-colors"
+                className="absolute right-0 top-0 h-full w-2 cursor-col-resize bg-transparent hover:bg-[var(--color-primary)]/30 transition-colors"
                 onMouseDown={(e) => {
                   e.preventDefault();
                   handleMouseDown("year");
@@ -207,12 +299,12 @@ export default function ResizableTable({
               />
             </th>
             <th
-              className="p-3 text-left text-xs font-semibold text-slate-600 relative"
+              className="p-3 text-left text-xs font-semibold text-[var(--color-text-secondary)] relative"
               style={{ width: `${columnWidths.venue}%` }}
             >
               ジャーナル
               <div
-                className="absolute right-0 top-0 h-full w-2 cursor-col-resize bg-transparent hover:bg-blue-300 transition-colors"
+                className="absolute right-0 top-0 h-full w-2 cursor-col-resize bg-transparent hover:bg-[var(--color-primary)]/30 transition-colors"
                 onMouseDown={(e) => {
                   e.preventDefault();
                   handleMouseDown("venue");
@@ -220,12 +312,12 @@ export default function ResizableTable({
               />
             </th>
             <th
-              className="p-3 text-left text-xs font-semibold text-slate-600 relative"
+              className="p-3 text-left text-xs font-semibold text-[var(--color-text-secondary)] relative"
               style={{ width: `${columnWidths.citationCount}%` }}
             >
               引用数
               <div
-                className="absolute right-0 top-0 h-full w-2 cursor-col-resize bg-transparent hover:bg-blue-300 transition-colors"
+                className="absolute right-0 top-0 h-full w-2 cursor-col-resize bg-transparent hover:bg-[var(--color-primary)]/30 transition-colors"
                 onMouseDown={(e) => {
                   e.preventDefault();
                   handleMouseDown("citationCount");
@@ -233,12 +325,12 @@ export default function ResizableTable({
               />
             </th>
             <th
-              className="p-3 text-left text-xs font-semibold text-slate-600 relative"
+              className="p-3 text-left text-xs font-semibold text-[var(--color-text-secondary)] relative"
               style={{ width: `${columnWidths.tags}%` }}
             >
               タグ
               <div
-                className="absolute right-0 top-0 h-full w-2 cursor-col-resize bg-transparent hover:bg-blue-300 transition-colors"
+                className="absolute right-0 top-0 h-full w-2 cursor-col-resize bg-transparent hover:bg-[var(--color-primary)]/30 transition-colors"
                 onMouseDown={(e) => {
                   e.preventDefault();
                   handleMouseDown("tags");
@@ -246,12 +338,12 @@ export default function ResizableTable({
               />
             </th>
             <th
-              className="p-3 text-left text-xs font-semibold text-slate-600 relative"
+              className="p-3 text-left text-xs font-semibold text-[var(--color-text-secondary)] relative"
               style={{ width: `${columnWidths.aiSummary}%` }}
             >
               AI解説
               <div
-                className="absolute right-0 top-0 h-full w-2 cursor-col-resize bg-transparent hover:bg-blue-300 transition-colors"
+                className="absolute right-0 top-0 h-full w-2 cursor-col-resize bg-transparent hover:bg-[var(--color-primary)]/30 transition-colors"
                 onMouseDown={(e) => {
                   e.preventDefault();
                   handleMouseDown("aiSummary");

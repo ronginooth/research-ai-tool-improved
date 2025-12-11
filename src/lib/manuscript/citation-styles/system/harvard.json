@@ -1,0 +1,44 @@
+{
+  "id": "harvard",
+  "name": "Harvard",
+  "displayName": "Harvard (Author-Date)",
+  "isSystem": true,
+  "sort": {
+    "mode": "alphabetical",
+    "key": "firstAuthor.lastName"
+  },
+  "authorRules": {
+    "maxAuthors": 3,
+    "etAlAfter": 3,
+    "delimiter": ", ",
+    "finalDelimiter": ", ",
+    "format": "LastName FirstInitial"
+  },
+  "title": {
+    "include": true,
+    "case": "sentence",
+    "endPunctuation": "."
+  },
+  "journal": {
+    "useItalic": true,
+    "useVenue": true,
+    "fallbackAbbreviation": ""
+  },
+  "volume": {
+    "useBold": false,
+    "includeIssue": false,
+    "format": "range",
+    "pageSeparator": "–"
+  },
+  "doi": {
+    "include": true,
+    "prefix": "doi:"
+  },
+  "year": {
+    "format": "parentheses"
+  },
+  "template": "{authors} ({year}). {title}. {journal}, {volume}, {pages}. {doi}"
+}
+
+
+

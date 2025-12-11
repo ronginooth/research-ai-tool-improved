@@ -1,0 +1,14 @@
+<svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="32" height="32" rx="6" fill="#3B82F6"/>
+  <!-- 「月」の左側の縦線 -->
+  <path d="M12 8V24" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+  <!-- 「月」の右側の曲線（本のページをイメージ） -->
+  <path d="M12 8C14 8 16 9 18 10C20 11 22 12.5 22 14C22 15.5 20 17 18 18C16 19 14 20 12 20" stroke="white" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+  <path d="M12 20C14 20 16 21 18 22C20 23 22 24 22 24" stroke="white" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+  <!-- 本のページの曲線 -->
+  <path d="M12 12C14 12 16 13 18 14" stroke="white" stroke-width="1.5" stroke-linecap="round" fill="none" opacity="0.7"/>
+  <path d="M12 16C14 16 16 17 18 18" stroke="white" stroke-width="1.5" stroke-linecap="round" fill="none" opacity="0.7"/>
+</svg>
+
+
+

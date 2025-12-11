@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { callGemini } from "@/lib/gemini";
-import { fetchHtmlPlainText, extractHtmlContexts } from "@/lib/paper-content";
-import { aiProviderManager } from "@/lib/ai-provider-manager";
+import { fetchHtmlPlainText } from "@/lib/paper-content";
 import { supabaseAdmin } from "@/lib/supabase";
 import { PaperAIInsights } from "@/types";
 import { ensurePaperEmbeddings } from "@/lib/paper-ingest";
@@ -20,6 +19,9 @@ interface PaperInsightsRequestBody {
   };
 }
 
+const DEFAULT_USER = "demo-user-123";
+const MAX_GROBID_SECTIONS = 8;
+
 async function fetchFallbackPlainText(
   fallback?: PaperInsightsRequestBody["fallback"]
 ): Promise<string | null> {
@@ -28,6 +30,51 @@ async function fetchFallbackPlainText(
   const text = await fetchHtmlPlainText(htmlUrl);
   if (!text) return null;
   return text.slice(0, 20000);
+}
+
+function normalizeWhitespace(input?: string | null) {
+  if (!input) return "";
+  return input.replace(/\s+/g, " ").trim();
+}
+
+function buildGrobidNarrative(data: any | null): string | null {
+  if (!data) return null;
+  const lines: string[] = [];
+
+  if (data.title) {
+    lines.push(`GROBIDタイトル: ${data.title}`);
+  }
+  if (Array.isArray(data.authors) && data.authors.length) {
+    lines.push(`GROBID著者: ${data.authors.join(", ")}`);
+  }
+  if (data.abstract) {
+    lines.push(`GROBID抄録: ${normalizeWhitespace(data.abstract)}`);
+  }
+
+  if (Array.isArray(data.sections) && data.sections.length) {
+    data.sections.slice(0, MAX_GROBID_SECTIONS).forEach(
+      (section: { title?: string | null; paragraphs?: string[] }, index: number) => {
+        const content = Array.isArray(section?.paragraphs)
+          ? normalizeWhitespace(section?.paragraphs.join(" "))
+          : normalizeWhitespace(section?.paragraphs as any);
+        if (!content) return;
+        const title = section?.title || `Section ${index + 1}`;
+        lines.push(`[${title}] ${content.slice(0, 1500)}`);
+      }
+    );
+  }
+
+  if (Array.isArray(data.references) && data.references.length) {
+    const refs = data.references
+      .slice(0, 5)
+      .map((ref: any, index: number) => `Ref${index + 1}: ${normalizeWhitespace(ref?.title || ref)}`)
+      .filter(Boolean);
+    if (refs.length) {
+      lines.push(`参考文献抜粋:\n${refs.join("\n")}`);
+    }
+  }
+
+  return lines.length ? lines.join("\n\n") : null;
 }
 
 function buildInsightsPrompt({
@@ -96,6 +143,7 @@ function parseInsights(rawText: string): PaperAIInsights {
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as PaperInsightsRequestBody;
+    const userId = body.userId?.trim() || DEFAULT_USER;
 
     if (!body.paperId && !body.fallback?.url && !body.fallback?.abstract) {
       return NextResponse.json(
@@ -104,11 +152,48 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const plainText = await fetchFallbackPlainText(body.fallback);
+    let enrichedFallback = { ...body.fallback };
+    let grobidNarrative: string | null = null;
+
+    if (supabaseAdmin && body.paperId) {
+      const { data: record } = await supabaseAdmin
+        .from("user_library")
+        .select(
+          "id, title, authors, abstract, url, html_url, grobid_data, grobid_tei_xml"
+        )
+        .eq("id", body.paperId) // user_library.id (UUID)で検索
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (record) {
+        if (!enrichedFallback.title && record.title) {
+          enrichedFallback.title = record.title;
+        }
+        if (!enrichedFallback.authors && record.authors) {
+          enrichedFallback.authors = record.authors;
+        }
+        if (!enrichedFallback.abstract && record.abstract) {
+          enrichedFallback.abstract = record.abstract;
+        }
+        if (!enrichedFallback.url && record.url) {
+          enrichedFallback.url = record.url;
+        }
+        if (!enrichedFallback.htmlUrl && record.html_url) {
+          enrichedFallback.htmlUrl = record.html_url;
+        }
+        grobidNarrative = buildGrobidNarrative(record.grobid_data);
+      }
+    }
+
+    const fallbackPlainText = await fetchFallbackPlainText(enrichedFallback);
+    const articleSegments = [grobidNarrative, fallbackPlainText].filter(Boolean);
+    const articleText = articleSegments.length
+      ? articleSegments.join("\n\n")
+      : null;
 
     const prompt = buildInsightsPrompt({
-      fallback: body.fallback,
-      articleText: plainText,
+      fallback: enrichedFallback,
+      articleText,
       paperId: body.paperId,
     });
 
@@ -123,9 +208,10 @@ export async function POST(request: NextRequest) {
     if (body.paperId) {
       await ensurePaperEmbeddings({
         paperId: body.paperId,
-        htmlUrl: body.fallback?.htmlUrl ?? body.fallback?.url ?? null,
+        htmlUrl:
+          enrichedFallback.htmlUrl ?? enrichedFallback.url ?? null,
         pdfUrl: undefined,
-        fallbackText: plainText ?? undefined,
+        fallbackText: articleText ?? undefined,
         force: false,
       });
     }
