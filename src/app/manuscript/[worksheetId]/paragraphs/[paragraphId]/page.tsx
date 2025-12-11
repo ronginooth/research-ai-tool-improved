@@ -601,12 +601,13 @@ export default function ParagraphDetailPage() {
                       throw new Error("Paper data is missing");
                     }
                     const searchData = await searchResponse.json();
+                    const paperForSearch = paper; // nullチェック後の変数
                     const existingPaper = searchData.papers?.find(
                       (p: Paper) =>
-                        p.title === paper.title ||
+                        p.title === paperForSearch.title ||
                         (p.title &&
-                          paper.title &&
-                          p.title.toLowerCase() === paper.title.toLowerCase())
+                          paperForSearch.title &&
+                          p.title.toLowerCase() === paperForSearch.title.toLowerCase())
                     );
                     if (existingPaper && existingPaper.id) {
                       paperId = existingPaper.id;
@@ -1069,12 +1070,12 @@ export default function ParagraphDetailPage() {
 
         // library検索結果のIDをsavedPaperIdsに追加（重複保存を防ぐため）
         // フィルタリング前の全論文のIDを追加する
-        const libraryPaperIds = new Set(
+        const libraryPaperIds = new Set<string>(
           allLibraryPapers
             .map((p: Paper) => p.id)
             .filter((id: string | undefined): id is string => !!id)
         );
-        setSavedPaperIds((prev) => new Set([...prev, ...libraryPaperIds]));
+        setSavedPaperIds((prev) => new Set<string>([...prev, ...libraryPaperIds]));
 
         // 既に引用に追加されている論文を除外
         const citedPaperIds = new Set(
