@@ -850,13 +850,13 @@ export default function CitationMapVisualization({
     const handleMouseMove = (e: MouseEvent) => {
       const deltaX = e.clientX - resizeStartRef.current!.x;
 
-      if (isResizing === 'right') {
+      if (isResizing === 'right' && resizeStartRef.current) {
         // 詳細パネルとmapエリアの境界をリサイズ
         const newDetailsWidth = Math.max(200, Math.min(600, resizeStartRef.current.detailsWidth - deltaX));
         const newMapWidth = Math.max(400, resizeStartRef.current.mapWidth + deltaX);
         setDetailsWidth(newDetailsWidth);
         setMapWidth(newMapWidth);
-      } else if (isResizing === 'left') {
+      } else if (isResizing === 'left' && resizeStartRef.current) {
         // 論文一覧パネルとmapエリアの境界をリサイズ
         const newListWidth = Math.max(200, Math.min(500, resizeStartRef.current.listWidth + deltaX));
         const newMapWidth = Math.max(400, resizeStartRef.current.mapWidth - deltaX);

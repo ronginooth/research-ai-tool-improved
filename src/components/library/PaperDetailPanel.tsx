@@ -1444,7 +1444,7 @@ export default function PaperDetailPanel({
                                           const authorsStr = grobidData.authors.trim();
                                           if (!authorsStr) return "なし";
                                           // カンマやセミコロンで分割を試みる
-                                          const authors = authorsStr.split(/[,;]/).map(a => a.trim()).filter(Boolean);
+                                          const authors = authorsStr.split(/[,;]/).map((a: string) => a.trim()).filter(Boolean);
                                           if (authors.length <= 5) {
                                             return authors.join(", ");
                                           } else {

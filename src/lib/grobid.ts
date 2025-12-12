@@ -130,8 +130,7 @@ export function parseGrobidTei(teiXml: string): GrobidResult | null {
     // cheerioでXMLをパース（xmlMode: trueでXMLとして扱う）
     const $ = cheerio.load(teiXml, { 
       xmlMode: true,
-      decodeEntities: false,
-    });
+    } as any);
 
     // タイトルを抽出
     const title = $('title[level="a"][type="main"]').first().text().trim() || null;

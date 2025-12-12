@@ -223,7 +223,7 @@ async function parsePdfChunks(pdfData: Buffer): Promise<ParsePdfResult> {
   console.log("[PDF Parse] Using pdf-parse for fallback text extraction");
   try {
     const pdfParse = await import("pdf-parse");
-    const pdfInfo = await pdfParse.default(pdfData);
+    const pdfInfo = await ((pdfParse as any).default || pdfParse)(pdfData);
     
     const fullText = pdfInfo.text || "";
     
