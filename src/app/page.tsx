@@ -422,8 +422,8 @@ function HomeContent() {
       setResults(data);
       setCurrentSearchStep("");
       // APIから返ってきた処理ステップを設定
-      if (data.searchLogic?.processingSteps) {
-        setProcessingSteps(data.searchLogic.processingSteps);
+      if ((data.searchLogic as any)?.processingSteps) {
+        setProcessingSteps((data.searchLogic as any).processingSteps);
       }
 
       // 検索結果から進捗を更新
@@ -434,7 +434,7 @@ function HomeContent() {
           googleScholar: { status: "idle", fetched: 0 },
         };
 
-        data.sourceStats.forEach((stat) => {
+        data.sourceStats.forEach((stat: any) => {
           if (stat.source === "semantic_scholar") {
             progress.semanticScholar = {
               status: stat.fetched > 0 ? "done" : "error",
@@ -1071,17 +1071,17 @@ function HomeContent() {
                     </div>
 
                     {/* クエリ処理の途中経過 */}
-                    {(processingSteps.length > 0 || results.searchLogic?.processingSteps) && (
+                    {(processingSteps.length > 0 || (results.searchLogic as any)?.processingSteps) && (
                       <div className="space-y-2 pt-3 border-t border-[var(--color-border)]">
                         <div className="text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wide mb-2">
                           クエリ処理の途中経過
                         </div>
                         <div className="space-y-2">
-                          {(processingSteps.length > 0 ? processingSteps : results.searchLogic?.processingSteps || []).map((step, index) => {
+                          {(processingSteps.length > 0 ? processingSteps : (results.searchLogic as any)?.processingSteps || []).map((step: any, index: number) => {
                             // 処理中かどうかを判定（「中」で終わる、または最後のステップでloading中）
                             const isProcessing = step.description.includes("中") && 
                               (step.description.endsWith("中") || step.description.endsWith("中...")) &&
-                              (loading || index === (processingSteps.length > 0 ? processingSteps : results.searchLogic?.processingSteps || []).length - 1);
+                              (loading || index === (processingSteps.length > 0 ? processingSteps : (results.searchLogic as any)?.processingSteps || []).length - 1);
                             
                             return (
                             <div key={index} className="flex items-start gap-3 text-xs">
@@ -1378,17 +1378,17 @@ function HomeContent() {
                       </div>
 
                       {/* クエリ処理の途中経過 */}
-                      {results.searchLogic?.processingSteps && results.searchLogic.processingSteps.length > 0 && (
+                      {(results.searchLogic as any)?.processingSteps && (results.searchLogic as any).processingSteps.length > 0 && (
                         <div className="space-y-2 pt-3 border-t border-[var(--color-border)]">
                           <div className="text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wide mb-2">
                             クエリ処理の途中経過
                           </div>
                           <div className="space-y-2">
-                            {results.searchLogic.processingSteps.map((step, index) => {
+                            {(results.searchLogic as any).processingSteps.map((step: any, index: number) => {
                               // 処理中かどうかを判定（「中」で終わる、または最後のステップでloading中）
                               const isProcessing = step.description.includes("中") && 
                                 (step.description.endsWith("中") || step.description.endsWith("中...")) &&
-                                (loading || index === results.searchLogic.processingSteps.length - 1);
+                                (loading || index === (results.searchLogic as any).processingSteps.length - 1);
                               
                               return (
                               <div key={index} className="flex items-start gap-3 text-xs">

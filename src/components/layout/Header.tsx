@@ -17,7 +17,6 @@ import {
 import { useTheme } from "@/contexts/ThemeContext";
 import { ThemeSelector } from "@/components/ui/ThemeSelector";
 import { Button } from "@/components/ui/Button";
-import { cn } from "@/lib/utils";
 
 const navigation = [
   { name: "Top", href: "/", icon: BookOpen },

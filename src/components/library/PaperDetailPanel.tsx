@@ -169,7 +169,7 @@ export default function PaperDetailPanel({
   const hasGrobidData = !!grobidData;
   const grobidStatusFromApi = processingStatus?.grobid?.status || "pending";
   // processingStatusからもGROBID完了状態を確認
-  const hasGrobidOutput = processingStatus?.details?.hasGrobidOutput || false;
+  const hasGrobidOutput = (processingStatus?.details as any)?.hasGrobidOutput || false;
   const grobidStatus = hasGrobidData || hasGrobidOutput || grobidStatusFromApi === "completed" ? "completed" : grobidStatusFromApi;
   const grobidMessage = processingStatus?.grobid?.message || (hasGrobidData || hasGrobidOutput ? "GROBID解析完了" : "GROBID解析待ち");
   const grobidError = processingStatus?.grobid?.error;
@@ -1033,7 +1033,7 @@ export default function PaperDetailPanel({
                     if (paperIdMatch && paperIdMatch[1]) {
                       paperId = paperIdMatch[1].trim();
                       // paperIdの検証（空でない、適切な長さである、英数字とハイフンのみ）
-                      if (paperId.length > 0 && paperId.length < 200 && /^[a-zA-Z0-9\-]+$/.test(paperId)) {
+                      if (paperId && paperId.length > 0 && paperId.length < 200 && /^[a-zA-Z0-9\-]+$/.test(paperId)) {
                         console.log(`[PaperDetailPanel] Extracted paperId: ${paperId} (length: ${paperId.length})`);
                       } else {
                         console.warn(`[PaperDetailPanel] Invalid paperId extracted: ${paperId} (length: ${paperId.length})`);

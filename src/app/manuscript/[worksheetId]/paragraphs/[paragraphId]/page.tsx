@@ -615,11 +615,15 @@ export default function ParagraphDetailPage() {
                   if (searchResponse.ok && paper) {
                     const searchData = await searchResponse.json();
                     const existingPaper = searchData.papers?.find(
-                      (p: Paper) =>
-                        p.title === paper.title ||
-                        (p.title &&
-                          paper.title &&
-                          p.title.toLowerCase() === paper.title.toLowerCase())
+                      (p: Paper) => {
+                        if (!paper) return false;
+                        return (
+                          p.title === paper.title ||
+                          (p.title &&
+                            paper.title &&
+                            p.title.toLowerCase() === paper.title.toLowerCase())
+                        );
+                      }
                     );
                     if (existingPaper && existingPaper.id) {
                       paperId = existingPaper.id;
@@ -1019,14 +1023,14 @@ export default function ParagraphDetailPage() {
         // 被引用数フィルター適用
         if (minCitations) {
           const min = parseInt(minCitations);
-          papers = papers.filter((p: Paper) => (p.citationCount || 0) >= min);
+          papers = papers.filter((p: Paper) => ((p as any).citationCount || 0) >= min);
         }
 
         // 被引用数でソート
         if (sortByCitations) {
           papers = papers.sort(
             (a: Paper, b: Paper) =>
-              (b.citationCount || 0) - (a.citationCount || 0)
+              ((b as any).citationCount || 0) - ((a as any).citationCount || 0)
           );
         }
 
@@ -1087,7 +1091,7 @@ export default function ParagraphDetailPage() {
             .map((p: Paper) => p.id)
             .filter((id: string | undefined): id is string => !!id)
         );
-        setSavedPaperIds((prev) => new Set([...prev, ...libraryPaperIds]));
+        setSavedPaperIds((prev) => new Set([...prev, ...libraryPaperIds]) as Set<string>);
 
         // 既に引用に追加されている論文を除外
         const citedPaperIds = new Set(
@@ -1136,10 +1140,10 @@ export default function ParagraphDetailPage() {
             title: paper.title,
             authors: paper.authors,
             year: paper.year,
-            abstract: paper.abstract || "",
-            url: paper.url || "",
-            citationCount: paper.citationCount || 0,
-            venue: paper.venue || "",
+            abstract: (paper as any).abstract || "",
+            url: (paper as any).url || "",
+            citationCount: (paper as any).citationCount || 0,
+            venue: (paper as any).venue || "",
           },
           linkedFrom: linkedFrom,
         }),
@@ -2416,25 +2420,25 @@ export default function ParagraphDetailPage() {
                                 </div>
                                 {/* 保存済みラベルとソースラベル */}
                                 <div className="absolute top-2 right-2 z-10 flex items-center gap-2">
-                                  {paper.source && (
+                                  {(paper as any).source && (
                                     <span
                                       className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold text-white shadow-sm ${
-                                        paper.source === "semantic_scholar"
+                                        (paper as any).source === "semantic_scholar"
                                           ? "bg-blue-600"
-                                          : paper.source === "pubmed"
+                                          : (paper as any).source === "pubmed"
                                           ? "bg-green-600"
-                                          : paper.source === "google_scholar"
+                                          : (paper as any).source === "google_scholar"
                                           ? "bg-orange-600"
                                           : "bg-gray-600"
                                       }`}
                                     >
-                                      {paper.source === "semantic_scholar"
+                                      {(paper as any).source === "semantic_scholar"
                                         ? "Semantic Scholar"
-                                        : paper.source === "pubmed"
+                                        : (paper as any).source === "pubmed"
                                         ? "PubMed"
-                                        : paper.source === "google_scholar"
+                                        : (paper as any).source === "google_scholar"
                                         ? "Google Scholar"
-                                        : paper.source}
+                                        : (paper as any).source}
                                     </span>
                                   )}
                                   {isSaved && (
@@ -2455,9 +2459,9 @@ export default function ParagraphDetailPage() {
                                     {paper.venue}
                                   </div>
                                 )}
-                                {paper.citationCount !== undefined && (
+                                {(paper as any).citationCount !== undefined && (
                                   <div className="text-xs text-[var(--color-primary)] font-semibold mt-1 pl-7">
-                                    被引用数: {paper.citationCount}
+                                    被引用数: {(paper as any).citationCount}
                                   </div>
                                 )}
                                 {(paper as any).tags &&
