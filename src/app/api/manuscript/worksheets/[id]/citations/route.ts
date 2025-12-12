@@ -8,13 +8,12 @@ const DEFAULT_USER = "demo-user-123";
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get("userId") || DEFAULT_USER;
-    const resolvedParams = await params;
-    const worksheetId = resolvedParams.id;
+    const worksheetId = params.id;
 
     const { adminClient } = await getSupabaseForUser(request, userId);
     if (!adminClient) {

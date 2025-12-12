@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
 
     // パラグラフが解析された場合は、パラグラフレコードも作成
     if (structure && structure.paragraphs && structure.paragraphs.length > 0 && parsed) {
-      const paragraphInserts = parsed.paragraphs.map((p: any) => ({
+      const paragraphInserts = parsed.paragraphs.map((p) => ({
         worksheet_id: worksheet.id,
         paragraph_number: p.paragraphNumber,
         section_type: p.sectionType,

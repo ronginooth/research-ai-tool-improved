@@ -8,13 +8,12 @@ const DEFAULT_USER = "demo-user-123";
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get("userId") || DEFAULT_USER;
-    const resolvedParams = await params;
-    const paragraphId = resolvedParams.id;
+    const paragraphId = params.id;
 
     const { adminClient } = await getSupabaseForUser(request, userId);
     if (!adminClient) {
@@ -54,13 +53,12 @@ export async function GET(
  */
 export async function PUT(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
     const body = await request.json();
     const userId = body.userId || DEFAULT_USER;
-    const resolvedParams = await params;
-    const paragraphId = resolvedParams.id;
+    const paragraphId = params.id;
     const { title, content, description, status, word_count, japanese_translation } = body;
 
     const { adminClient } = await getSupabaseForUser(request, userId);
@@ -92,41 +90,15 @@ export async function PUT(
     if (word_count !== undefined) updateData.word_count = word_count;
     if (japanese_translation !== undefined) updateData.japanese_translation = japanese_translation;
 
-    // まず所有権を確認
-    const { data: existingParagraph, error: fetchError } = await adminClient
-      .from("manuscript_paragraphs")
-      .select(`
-        id,
-        manuscript_worksheets!inner(
-          id,
-          user_id
-        )
-      `)
-      .eq("id", paragraphId)
-      .single();
-
-    if (fetchError || !existingParagraph) {
-      return NextResponse.json(
-        { error: "パラグラフが見つかりません" },
-        { status: 404 }
-      );
-    }
-
-    // 所有権確認
-    const worksheet = (existingParagraph as any).manuscript_worksheets;
-    if (!worksheet || worksheet.user_id !== userId) {
-      return NextResponse.json(
-        { error: "アクセス権限がありません" },
-        { status: 403 }
-      );
-    }
-
-    // 更新実行
     const { data, error } = await adminClient
       .from("manuscript_paragraphs")
       .update(updateData)
       .eq("id", paragraphId)
-      .select("*")
+      .select(`
+        *,
+        manuscript_worksheets!inner(user_id)
+      `)
+      .eq("manuscript_worksheets.user_id", userId)
       .single();
 
     if (error) throw error;
@@ -148,13 +120,12 @@ export async function PUT(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
   try {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get("userId") || DEFAULT_USER;
-    const resolvedParams = await params;
-    const paragraphId = resolvedParams.id;
+    const paragraphId = params.id;
 
     const { adminClient } = await getSupabaseForUser(request, userId);
     if (!adminClient) {

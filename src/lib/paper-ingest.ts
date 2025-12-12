@@ -223,9 +223,7 @@ async function parsePdfChunks(pdfData: Buffer): Promise<ParsePdfResult> {
   console.log("[PDF Parse] Using pdf-parse for fallback text extraction");
   try {
     const pdfParse = await import("pdf-parse");
-    // ESMモジュールの場合、defaultプロパティがない可能性があるため、直接使用
-    const pdfParseFn = (pdfParse as any).default || pdfParse;
-    const pdfInfo = await pdfParseFn(pdfData);
+    const pdfInfo = await pdfParse.default(pdfData);
     
     const fullText = pdfInfo.text || "";
     

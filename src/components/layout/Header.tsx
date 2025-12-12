@@ -141,5 +141,7 @@ export default function Header() {
   );
 }
 
-// cn関数は@/lib/utilsからインポート済み
+function cn(...classes: (string | undefined | false)[]): string {
+  return classes.filter(Boolean).join(" ");
+}
 

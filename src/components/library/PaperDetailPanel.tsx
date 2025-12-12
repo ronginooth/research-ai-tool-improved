@@ -61,7 +61,6 @@ interface ProcessingStatus {
     chunkCount: number;
     embeddingCount: number;
     sectionCount: number;
-    hasGrobidOutput?: boolean;
   };
 }
 
@@ -1032,13 +1031,12 @@ export default function PaperDetailPanel({
                     const paperIdMatch = url.match(/semanticscholar\.org\/paper\/(?:[^\/]+\/)?([a-zA-Z0-9\-]+)(?:\?|#|$)/i) ||
                                          url.match(/semanticscholar\.org\/paper\/([a-zA-Z0-9\-]+)(?:\?|#|$)/i);
                     if (paperIdMatch && paperIdMatch[1]) {
-                      const extractedId = paperIdMatch[1].trim();
+                      paperId = paperIdMatch[1].trim();
                       // paperIdの検証（空でない、適切な長さである、英数字とハイフンのみ）
-                      if (extractedId.length > 0 && extractedId.length < 200 && /^[a-zA-Z0-9\-]+$/.test(extractedId)) {
-                        paperId = extractedId;
-                        console.log(`[PaperDetailPanel] Extracted paperId: ${extractedId} (length: ${extractedId.length})`);
+                      if (paperId.length > 0 && paperId.length < 200 && /^[a-zA-Z0-9\-]+$/.test(paperId)) {
+                        console.log(`[PaperDetailPanel] Extracted paperId: ${paperId} (length: ${paperId.length})`);
                       } else {
-                        console.warn(`[PaperDetailPanel] Invalid paperId extracted: ${extractedId} (length: ${extractedId.length})`);
+                        console.warn(`[PaperDetailPanel] Invalid paperId extracted: ${paperId} (length: ${paperId.length})`);
                         paperId = null;
                       }
                     } else {
@@ -1446,7 +1444,7 @@ export default function PaperDetailPanel({
                                           const authorsStr = grobidData.authors.trim();
                                           if (!authorsStr) return "なし";
                                           // カンマやセミコロンで分割を試みる
-                                          const authors = authorsStr.split(/[,;]/).map((a: string) => a.trim()).filter(Boolean);
+                                          const authors = authorsStr.split(/[,;]/).map(a => a.trim()).filter(Boolean);
                                           if (authors.length <= 5) {
                                             return authors.join(", ");
                                           } else {

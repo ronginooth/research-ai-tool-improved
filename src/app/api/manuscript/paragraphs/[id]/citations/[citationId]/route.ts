@@ -24,43 +24,17 @@ export async function DELETE(
       );
     }
 
-    // まず所有権を確認
-    const { data: citation, error: fetchError } = await adminClient
-      .from("paragraph_citations")
-      .select(`
-        id,
-        manuscript_paragraphs!inner(
-          id,
-          manuscript_worksheets!inner(
-            id,
-            user_id
-          )
-        )
-      `)
-      .eq("id", citationId)
-      .single();
-
-    if (fetchError || !citation) {
-      return NextResponse.json(
-        { error: "引用が見つかりません" },
-        { status: 404 }
-      );
-    }
-
-    // 所有権確認
-    const worksheet = (citation as any).manuscript_paragraphs?.manuscript_worksheets;
-    if (!worksheet || worksheet.user_id !== userId) {
-      return NextResponse.json(
-        { error: "アクセス権限がありません" },
-        { status: 403 }
-      );
-    }
-
-    // 削除実行
     const { error } = await adminClient
       .from("paragraph_citations")
       .delete()
-      .eq("id", citationId);
+      .eq("id", citationId)
+      .select(`
+        manuscript_paragraphs!inner(
+          manuscript_worksheets!inner(user_id)
+        )
+      `)
+      .eq("manuscript_paragraphs.manuscript_worksheets.user_id", userId)
+      .single();
 
     if (error) throw error;
 

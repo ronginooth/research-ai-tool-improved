@@ -196,7 +196,7 @@ export default function ResizableTable({
             onRemoveTag={onRemoveTag}
             onCreateTag={onCreateTag}
             className="min-w-32"
-            allPapers={papers as Array<{ tags?: string[] }>}
+            allPapers={papers}
           />
         </td>
         <td className="p-3" style={{ width: `${columnWidths.aiSummary}%` }}>

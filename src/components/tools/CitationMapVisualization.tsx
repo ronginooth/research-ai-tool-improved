@@ -848,8 +848,7 @@ export default function CitationMapVisualization({
     if (!isResizing || !resizeStartRef.current) return;
 
     const handleMouseMove = (e: MouseEvent) => {
-      if (!resizeStartRef.current) return;
-      const deltaX = e.clientX - resizeStartRef.current.x;
+      const deltaX = e.clientX - resizeStartRef.current!.x;
 
       if (isResizing === 'right') {
         // 詳細パネルとmapエリアの境界をリサイズ

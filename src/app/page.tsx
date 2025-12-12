@@ -59,12 +59,6 @@ interface SearchLogic {
   translatedQuery: string;
   translationMethod: "gemini" | "fallback" | "none";
   searchedSources: string[];
-  processingSteps?: Array<{
-    step: string;
-    description: string;
-    query?: string;
-    details?: any;
-  }>;
 }
 
 interface SearchResult {
@@ -440,7 +434,7 @@ function HomeContent() {
           googleScholar: { status: "idle", fetched: 0 },
         };
 
-        data.sourceStats.forEach((stat: SourceStats) => {
+        data.sourceStats.forEach((stat) => {
           if (stat.source === "semantic_scholar") {
             progress.semanticScholar = {
               status: stat.fetched > 0 ? "done" : "error",
@@ -1394,7 +1388,7 @@ function HomeContent() {
                               // 処理中かどうかを判定（「中」で終わる、または最後のステップでloading中）
                               const isProcessing = step.description.includes("中") && 
                                 (step.description.endsWith("中") || step.description.endsWith("中...")) &&
-                                (loading || index === (results.searchLogic?.processingSteps?.length || 0) - 1);
+                                (loading || index === results.searchLogic.processingSteps.length - 1);
                               
                               return (
                               <div key={index} className="flex items-start gap-3 text-xs">

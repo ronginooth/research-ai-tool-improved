@@ -71,7 +71,6 @@ export async function GET(request: NextRequest) {
       doi: paper.doi || "",
       url: paper.url || "",
       abstract: paper.abstract || "",
-      citationCount: paper.citation_count || 0,
     }));
     
     if (format === "csl-json") {

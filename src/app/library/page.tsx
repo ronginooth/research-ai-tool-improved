@@ -845,8 +845,9 @@ database/migrations/add_is_favorite_column.sql`;
       if (selectedPaper && selectedPaper.id === paperId) {
         setSelectedPaper({
           ...selectedPaper,
+          is_favorite: result.isFavorite,
           isFavorite: result.isFavorite,
-        } as any);
+        });
       }
     } catch (error) {
       console.error("Toggle favorite error:", error);
@@ -1435,7 +1436,7 @@ supabase-thumbnail-migration.sql`;
               onRemoveTag={handleRemoveTag}
               onCreateTag={handleCreateTag}
               className="mt-2"
-              allPapers={papers as Array<{ tags?: string[] }>}
+              allPapers={papers}
             />
           )}
 
@@ -3040,7 +3041,7 @@ supabase-thumbnail-migration.sql`;
             onRemoveTag={handleRemoveTag}
             onCreateTag={handleCreateTag}
             availableTags={tags}
-            allPapers={papers as Array<{ tags?: string[] }>}
+            allPapers={papers}
           />
         )}
       </main>

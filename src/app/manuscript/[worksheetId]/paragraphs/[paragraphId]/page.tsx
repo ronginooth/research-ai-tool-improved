@@ -20,7 +20,6 @@ import {
 } from "@/lib/manuscript/citation-styles";
 import { CitationSorter } from "@/lib/manuscript/citation-engine/Sorter";
 import { PaperData } from "@/lib/manuscript/citation-engine/ReferenceRenderer";
-import { Paper } from "@/types";
 
 const DEFAULT_USER = "demo-user-123";
 
@@ -51,6 +50,14 @@ interface Citation {
     abstract: string;
     url: string;
   };
+}
+
+interface Paper {
+  id: string;
+  title: string;
+  authors: string;
+  year: number;
+  venue: string;
 }
 
 export default function ParagraphDetailPage() {
@@ -178,9 +185,9 @@ export default function ParagraphDetailPage() {
       );
       if (response.ok) {
         const data = await response.json();
-        const ids = new Set<string>((data.papers || []).map((p: Paper) => p.id));
+        const ids = new Set((data.papers || []).map((p: Paper) => p.id));
         // 既存のsavedPaperIdsとマージ（上書きしない）
-        setSavedPaperIds((prev) => new Set<string>([...prev, ...ids]));
+        setSavedPaperIds((prev) => new Set([...prev, ...ids]));
       }
     } catch (error) {
       console.error("Failed to fetch saved paper IDs:", error);
@@ -468,7 +475,6 @@ export default function ParagraphDetailPage() {
               const searchData = await searchResponse.json();
               // タイトルで既存の論文を検索
               const existingPaper = searchData.papers?.find((p: Paper) => {
-                if (!paper) return false;
                 const titleMatch =
                   p.title === paper.title ||
                   (p.title &&
@@ -491,9 +497,6 @@ export default function ParagraphDetailPage() {
                 );
               } else {
                 // 見つからない場合は、Library APIで既存の論文を確認
-                if (!paper) {
-                  throw new Error("Paper data is missing");
-                }
                 console.log(
                   "[Add Citation] Not found in search, checking via Library API"
                 );
@@ -509,7 +512,7 @@ export default function ParagraphDetailPage() {
                       title: paper.title,
                       authors: paper.authors,
                       year: paper.year,
-                      abstract: (paper as any).abstract || "",
+                      abstract: paper.abstract || "",
                       url: paper.url || "",
                       citationCount: paper.citationCount || 0,
                       venue: paper.venue || "",
@@ -545,9 +548,6 @@ export default function ParagraphDetailPage() {
             }
           } else {
             // 保存されていない場合は、Libraryに保存
-            if (!paper) {
-              throw new Error("Paper data is missing");
-            }
             console.log("[Add Citation] Paper not saved, saving to library");
             const saveResponse = await fetch("/api/library", {
               method: "POST",
@@ -588,26 +588,19 @@ export default function ParagraphDetailPage() {
                   );
                 } else {
                   // 既存の論文を検索してuser_library.id（UUID）を取得
-                  if (!paper) {
-                    throw new Error("Paper data is missing");
-                  }
                   const searchResponse = await fetch(
                     `/api/manuscript/citations/search?userId=${DEFAULT_USER}&query=${encodeURIComponent(
                       paper.title
                     )}`
                   );
                   if (searchResponse.ok) {
-                    if (!paper) {
-                      throw new Error("Paper data is missing");
-                    }
                     const searchData = await searchResponse.json();
-                    const paperForSearch = paper; // nullチェック後の変数
                     const existingPaper = searchData.papers?.find(
                       (p: Paper) =>
-                        p.title === paperForSearch.title ||
+                        p.title === paper.title ||
                         (p.title &&
-                          paperForSearch.title &&
-                          p.title.toLowerCase() === paperForSearch.title.toLowerCase())
+                          paper.title &&
+                          p.title.toLowerCase() === paper.title.toLowerCase())
                     );
                     if (existingPaper && existingPaper.id) {
                       paperId = existingPaper.id;
@@ -1070,12 +1063,12 @@ export default function ParagraphDetailPage() {
 
         // library検索結果のIDをsavedPaperIdsに追加（重複保存を防ぐため）
         // フィルタリング前の全論文のIDを追加する
-        const libraryPaperIds = new Set<string>(
+        const libraryPaperIds = new Set(
           allLibraryPapers
             .map((p: Paper) => p.id)
             .filter((id: string | undefined): id is string => !!id)
         );
-        setSavedPaperIds((prev) => new Set<string>([...prev, ...libraryPaperIds]));
+        setSavedPaperIds((prev) => new Set([...prev, ...libraryPaperIds]));
 
         // 既に引用に追加されている論文を除外
         const citedPaperIds = new Set(
