@@ -1435,7 +1435,7 @@ supabase-thumbnail-migration.sql`;
               onRemoveTag={handleRemoveTag}
               onCreateTag={handleCreateTag}
               className="mt-2"
-              allPapers={papers}
+              allPapers={papers as any}
             />
           )}
 
@@ -3040,7 +3040,7 @@ supabase-thumbnail-migration.sql`;
             onRemoveTag={handleRemoveTag}
             onCreateTag={handleCreateTag}
             availableTags={tags}
-            allPapers={papers}
+            allPapers={papers as any}
           />
         )}
       </main>

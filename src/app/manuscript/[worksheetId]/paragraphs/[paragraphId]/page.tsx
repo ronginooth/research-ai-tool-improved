@@ -205,7 +205,7 @@ export default function ParagraphDetailPage() {
         const data = await response.json();
         const ids = new Set((data.papers || []).map((p: Paper) => p.id));
         // 既存のsavedPaperIdsとマージ（上書きしない）
-        setSavedPaperIds((prev) => new Set([...prev, ...ids]));
+        setSavedPaperIds((prev) => new Set([...prev, ...ids]) as Set<string>);
       }
     } catch (error) {
       console.error("Failed to fetch saved paper IDs:", error);
@@ -489,10 +489,11 @@ export default function ParagraphDetailPage() {
               )}`
             );
 
-            if (searchResponse.ok) {
+            if (searchResponse.ok && paper) {
               const searchData = await searchResponse.json();
               // タイトルで既存の論文を検索
               const existingPaper = searchData.papers?.find((p: Paper) => {
+                if (!paper) return false;
                 const titleMatch =
                   p.title === paper.title ||
                   (p.title &&
@@ -530,10 +531,10 @@ export default function ParagraphDetailPage() {
                       title: paper.title,
                       authors: paper.authors,
                       year: paper.year,
-                      abstract: paper.abstract || "",
-                      url: paper.url || "",
-                      citationCount: paper.citationCount || 0,
-                      venue: paper.venue || "",
+                      abstract: (paper as any).abstract || "",
+                      url: (paper as any).url || "",
+                      citationCount: (paper as any).citationCount || 0,
+                      venue: (paper as any).venue || "",
                     },
                   }),
                 });
