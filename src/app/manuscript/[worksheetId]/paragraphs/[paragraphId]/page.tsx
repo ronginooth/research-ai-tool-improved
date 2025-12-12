@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { FileText, Edit, BookOpen, CheckSquare, Square, X } from "lucide-react";
+import { FileText, Edit, BookOpen, CheckSquare, Square, X, Menu, MoreVertical } from "lucide-react";
 import Header from "@/components/layout/Header";
 import {
   generateFieldCode,
@@ -107,6 +107,24 @@ export default function ParagraphDetailPage() {
   const [selectedText, setSelectedText] = useState<string | null>(null);
   const [showSearchConfirmDialog, setShowSearchConfirmDialog] = useState(false);
   const [useAdvancedSearch, setUseAdvancedSearch] = useState<boolean>(false);
+  const [leftSidebarOpen, setLeftSidebarOpen] = useState(false); // 初期は閉じる
+  const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
+
+  // レスポンシブ対応: 画面幅に応じてサイドバーを自動で閉じる
+  useEffect(() => {
+    const handleResize = () => {
+      // モバイルでは開いていたら閉じる
+      if (window.innerWidth < 1024) {
+        setLeftSidebarOpen(false);
+      }
+      // 右カラムは1280px未満で収納、それ以上で表示
+      setRightSidebarOpen(window.innerWidth >= 1280);
+    };
+
+    handleResize();
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   useEffect(() => {
     if (paragraphId) {
@@ -1206,19 +1224,65 @@ export default function ParagraphDetailPage() {
     return numA - numB;
   });
 
+  // ステータスアイコン取得関数
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case "completed":
+        return "✅";
+      case "in_progress":
+        return "⏳";
+      default:
+        return "❌";
+    }
+  };
+
+  // セクション名取得関数
+  const getSectionName = (sectionType: string) => {
+    const names: Record<string, string> = {
+      introduction: "Introduction",
+      methods: "Methods",
+      results: "Results",
+      discussion: "Discussion",
+    };
+    return names[sectionType] || sectionType;
+  };
+
+  // セクション色取得関数
+  const getSectionColor = (sectionType: string) => {
+    const colors: Record<string, string> = {
+      introduction: "var(--color-primary)",
+      methods: "var(--color-success)",
+      results: "var(--color-warning)",
+      discussion: "var(--color-accent)",
+    };
+    return colors[sectionType] || "var(--color-primary)";
+  };
+
   return (
     <div className="h-screen bg-[var(--color-background)] flex flex-col overflow-hidden">
       {/* 全画面レイアウト: 左側パラグラフ一覧、中央エディタ、右側引用論文 */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="flex-1 flex overflow-hidden relative">
         {/* 左側: パラグラフ一覧 */}
-        <div className="w-64 border-r border-[var(--color-border)] bg-[var(--color-surface)] flex flex-col overflow-hidden">
+        <div
+          className={`${
+            leftSidebarOpen ? "w-64" : "w-0 hidden"
+          } transition-all duration-300 border-r border-[var(--color-border)] bg-[var(--color-surface)] flex flex-col overflow-hidden`}
+        >
           <div className="p-4 border-b border-[var(--color-border)]">
-            <button
-              onClick={() => router.push(`/manuscript/${worksheetId}`)}
-              className="text-sm text-[var(--color-primary)] hover:underline mb-2"
-            >
-              ← 一覧に戻る
-            </button>
+            <div className="flex items-center justify-between mb-2">
+              <button
+                onClick={() => router.push(`/manuscript/${worksheetId}`)}
+                className="text-sm text-[var(--color-primary)] hover:underline"
+              >
+                ← 一覧に戻る
+              </button>
+              <button
+                onClick={() => setLeftSidebarOpen(false)}
+                className="p-1 rounded hover:bg-[var(--color-background)] text-[var(--color-text-secondary)]"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
             <h2 className="text-lg font-semibold text-[var(--color-text)]">
               パラグラフ一覧
             </h2>
@@ -1246,8 +1310,55 @@ export default function ParagraphDetailPage() {
         </div>
 
         {/* 中央: メインエディタ */}
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 flex flex-col overflow-hidden relative">
           <div className="p-6 overflow-y-auto">
+            {/* ハンバーガーメニューボタン（左カラムが閉じている時） */}
+            {!leftSidebarOpen && (
+              <button
+                onClick={() => setLeftSidebarOpen(true)}
+                className="absolute left-2 top-2 z-20 p-2 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] hover:bg-[var(--color-background)] text-[var(--color-text)] shadow-md"
+                title="パラグラフ一覧を開く"
+              >
+                <Menu className="h-5 w-5" />
+              </button>
+            )}
+
+            {/* 三点マークボタン（右カラムが閉じている時） */}
+            {!rightSidebarOpen && (
+              <button
+                onClick={() => setRightSidebarOpen(true)}
+                className="absolute right-2 top-2 z-10 p-2 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] hover:bg-[var(--color-background)] text-[var(--color-text)] shadow-md"
+              >
+                <MoreVertical className="h-5 w-5" />
+              </button>
+            )}
+
+            {/* 情報エリア（メインカラム上部） */}
+            {paragraph && (
+              <div className="mb-6 p-4 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg">
+                <div className="flex items-center gap-4 text-xs text-[var(--color-text-secondary)]">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[var(--color-text)]">
+                      {getStatusIcon(paragraph.status)} {paragraph.status}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span
+                      className="px-3 py-1 rounded-md text-xs font-bold text-[var(--color-surface)]"
+                      style={{ backgroundColor: getSectionColor(paragraph.section_type) }}
+                    >
+                      {getSectionName(paragraph.section_type)}
+                    </span>
+                  </div>
+                  {paragraph.word_count > 0 && (
+                    <div>
+                      <span>{paragraph.word_count} words</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             <div className="mb-6">
               {/* 前後のパラグラフナビゲーション */}
               <div className="flex items-center justify-end mb-4">
@@ -1826,20 +1937,36 @@ export default function ParagraphDetailPage() {
                 </div>
               </div>
             )}
+          </div>
+        </div>
 
-            {/* 右側: 引用論文 */}
-            <div className="w-96 border-l border-[var(--color-border)] bg-[var(--color-surface)] flex flex-col overflow-hidden">
+        {/* 右側: 引用論文 */}
+        <div
+              className={`${
+                rightSidebarOpen ? "w-96" : "w-0"
+              } transition-all duration-300 border-l border-[var(--color-border)] bg-[var(--color-surface)] flex flex-col overflow-hidden ${
+                rightSidebarOpen ? "" : "hidden"
+              }`}
+            >
               <div className="p-4 border-b border-[var(--color-border)]">
                 <div className="flex justify-between items-center">
                   <h2 className="text-lg font-semibold text-[var(--color-text)]">
                     引用論文 ({citations.length})
                   </h2>
-                  <button
-                    onClick={() => setShowCitationSearch(!showCitationSearch)}
-                    className="bg-[var(--color-primary)] text-[var(--color-surface)] px-3 py-1 rounded text-sm hover:opacity-90"
-                  >
-                    + 追加
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setShowCitationSearch(!showCitationSearch)}
+                      className="bg-[var(--color-primary)] text-[var(--color-surface)] px-3 py-1 rounded text-sm hover:opacity-90"
+                    >
+                      + 追加
+                    </button>
+                    <button
+                      onClick={() => setRightSidebarOpen(false)}
+                      className="p-1 rounded hover:bg-[var(--color-background)] text-[var(--color-text-secondary)]"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
               <div className="flex-1 overflow-y-auto p-4">
@@ -2489,31 +2616,9 @@ export default function ParagraphDetailPage() {
                   )}
                 </div>
 
-                {/* 情報 */}
-                <div className="border border-[var(--color-border)] rounded-lg p-4 bg-[var(--color-surface)]">
-                  <h2 className="text-lg font-semibold mb-4 text-[var(--color-text)]">
-                    情報
-                  </h2>
-                  <div className="space-y-2 text-sm text-[var(--color-text)]">
-                    <div>
-                      <span className="font-semibold">ステータス:</span>{" "}
-                      {paragraph.status}
-                    </div>
-                    <div>
-                      <span className="font-semibold">セクション:</span>{" "}
-                      {paragraph.section_type}
-                    </div>
-                    <div>
-                      <span className="font-semibold">単語数:</span>{" "}
-                      {paragraph.word_count}
-                    </div>
-                  </div>
-                </div>
               </div>
-            </div>
           </div>
         </div>
       </div>
-    </div>
   );
 }
