@@ -845,9 +845,8 @@ database/migrations/add_is_favorite_column.sql`;
       if (selectedPaper && selectedPaper.id === paperId) {
         setSelectedPaper({
           ...selectedPaper,
-          is_favorite: result.isFavorite,
           isFavorite: result.isFavorite,
-        });
+        } as any);
       }
     } catch (error) {
       console.error("Toggle favorite error:", error);

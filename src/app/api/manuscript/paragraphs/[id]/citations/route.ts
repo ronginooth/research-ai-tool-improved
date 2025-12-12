@@ -24,6 +24,29 @@ export async function GET(
       );
     }
 
+    // まず所有権を確認
+    const { data: paragraph, error: paraError } = await adminClient
+      .from("manuscript_paragraphs")
+      .select("worksheet_id, manuscript_worksheets!inner(user_id)")
+      .eq("id", paragraphId)
+      .single();
+
+    if (paraError || !paragraph) {
+      return NextResponse.json(
+        { error: "パラグラフが見つかりません" },
+        { status: 404 }
+      );
+    }
+
+    const worksheet = (paragraph as any).manuscript_worksheets;
+    if (!worksheet || worksheet.user_id !== userId) {
+      return NextResponse.json(
+        { error: "アクセス権限がありません" },
+        { status: 403 }
+      );
+    }
+
+    // 引用論文を取得
     const { data, error } = await adminClient
       .from("paragraph_citations")
       .select(`
@@ -36,13 +59,9 @@ export async function GET(
           venue,
           abstract,
           url
-        ),
-        manuscript_paragraphs!inner(
-          manuscript_worksheets!inner(user_id)
         )
       `)
       .eq("paragraph_id", paragraphId)
-      .eq("manuscript_paragraphs.manuscript_worksheets.user_id", userId)
       .order("citation_order", { ascending: true });
 
     if (error) throw error;

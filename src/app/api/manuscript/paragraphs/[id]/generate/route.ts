@@ -9,12 +9,13 @@ const DEFAULT_USER = "demo-user-123";
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const body = await request.json();
     const userId = body.userId || DEFAULT_USER;
-    const paragraphId = params.id;
+    const { id } = await params;
+    const paragraphId = id;
     const {
       includeExistingContent = false,
       targetWordCount,

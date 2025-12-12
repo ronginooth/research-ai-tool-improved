@@ -9,12 +9,13 @@ const DEFAULT_USER = "demo-user-123";
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get("userId") || DEFAULT_USER;
-    const worksheetId = params.id;
+    const { id } = await params;
+    const worksheetId = id;
 
     const { adminClient } = await getSupabaseForUser(request, userId);
     if (!adminClient) {
@@ -48,12 +49,13 @@ export async function GET(
  */
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const body = await request.json();
     const userId = body.userId || DEFAULT_USER;
-    const worksheetId = params.id;
+    const { id } = await params;
+    const worksheetId = id;
     const { title, content } = body;
 
     const { adminClient } = await getSupabaseForUser(request, userId);
@@ -108,12 +110,13 @@ export async function PUT(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { searchParams } = new URL(request.url);
     const userId = searchParams.get("userId") || DEFAULT_USER;
-    const worksheetId = params.id;
+    const { id } = await params;
+    const worksheetId = id;
 
     const { adminClient } = await getSupabaseForUser(request, userId);
     if (!adminClient) {
