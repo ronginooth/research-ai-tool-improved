@@ -580,10 +580,10 @@ export default function ParagraphDetailPage() {
                   title: paper.title,
                   authors: paper.authors,
                   year: paper.year,
-                  abstract: paper.abstract || "",
-                  url: paper.url || "",
-                  citationCount: paper.citationCount || 0,
-                  venue: paper.venue || "",
+                  abstract: (paper as any).abstract || "",
+                  url: (paper as any).url || "",
+                  citationCount: (paper as any).citationCount || 0,
+                  venue: (paper as any).venue || "",
                 },
               }),
             });
@@ -612,7 +612,7 @@ export default function ParagraphDetailPage() {
                       paper.title
                     )}`
                   );
-                  if (searchResponse.ok) {
+                  if (searchResponse.ok && paper) {
                     const searchData = await searchResponse.json();
                     const existingPaper = searchData.papers?.find(
                       (p: Paper) =>
