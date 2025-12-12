@@ -1036,7 +1036,7 @@ export default function PaperDetailPanel({
                       if (paperId && paperId.length > 0 && paperId.length < 200 && /^[a-zA-Z0-9\-]+$/.test(paperId)) {
                         console.log(`[PaperDetailPanel] Extracted paperId: ${paperId} (length: ${paperId.length})`);
                       } else {
-                        console.warn(`[PaperDetailPanel] Invalid paperId extracted: ${paperId} (length: ${paperId.length})`);
+                        console.warn(`[PaperDetailPanel] Invalid paperId extracted: ${paperId || 'null'} (length: ${paperId?.length || 0})`);
                         paperId = null;
                       }
                     } else {
@@ -1412,7 +1412,7 @@ export default function PaperDetailPanel({
                         </div>
                         
                         {/* GROBIDデータの詳細情報 */}
-                        {(grobidData || processingStatus?.details?.hasGrobidOutput) && (
+                        {(grobidData || (processingStatus?.details as any)?.hasGrobidOutput) && (
                           <div className="mt-3 pt-3 border-t border-[var(--color-border)]">
                             <div className="font-semibold text-[var(--color-text)] mb-2">GROBID抽出情報</div>
                             {grobidData ? (
