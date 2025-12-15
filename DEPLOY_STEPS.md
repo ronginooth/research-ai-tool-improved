@@ -18,7 +18,7 @@
 2. **プロジェクトをインポート**
 
    - 「Add New...」→「Project」を選択
-   - GitHub リポジトリ `ronginooth/research-ai-tool-improved` を選択
+   - GitHub リポジトリ `ronginooth/tsukuyomi-2` を選択
    - 「Import」をクリック
 
 3. **環境変数を設定**
@@ -44,7 +44,7 @@ SUPABASE_LIBRARY_BUCKET=library-pdfs
 1. **ログイン**
 
 ```bash
-cd /Users/makino/Documents/workspace_cursor/Research/Projects/AnswerThis/research-ai-tool-improved
+cd /Users/makino/Documents/workspace_cursor/Research/Projects/AnswerThis/tsukuyomi-2
 npx vercel login
 ```
 
@@ -60,7 +60,7 @@ npx vercel --prod --yes
 
 ## 🔧 デプロイ後の確認
 
-1. デプロイされた URL（例: `https://research-ai-tool-improved.vercel.app`）にアクセス
+1. デプロイされた URL（例: `https://tsukuyomi-2.vercel.app`）にアクセス
 2. ホームページが表示されるか確認
 3. `/auth` でログインページが表示されるか確認
 4. `/settings` で設定ページが表示されるか確認

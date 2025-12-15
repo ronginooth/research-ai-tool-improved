@@ -1,4 +1,4 @@
-# Research AI Tool - Improved Version
+# Tsukuyomi 2
 
 ## 🚀 概要
 
@@ -323,7 +323,7 @@ macOSでシステム起動時に自動的に開発サーバーを起動するに
 ### 1. 自動起動設定スクリプトを実行
 
 ```bash
-cd Research/Projects/AnswerThis/research-ai-tool-improved
+cd Research/Projects/AnswerThis/tsukuyomi-2
 bash setup-auto-start.sh
 ```
 
@@ -382,7 +382,7 @@ tail -f server-error.log
 
 ---
 
-**Research AI Tool - Improved Version**  
+**Tsukuyomi 2**  
 _Advanced AI-powered research assistance platform_
 
-# research-ai-tool-improved
+# tsukuyomi-2
