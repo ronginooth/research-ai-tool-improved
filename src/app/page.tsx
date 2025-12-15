@@ -1196,7 +1196,7 @@ function HomeContent() {
                     className="relative rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-4 transition-shadow hover:shadow-md"
                   >
                     {/* 右上の保存済みラベルとソースラベル */}
-                    <div className="absolute top-2 right-2 z-10 flex items-center gap-2">
+                    <div className="absolute top-0 right-0 z-10 flex items-center gap-2 p-2">
                       {paper.source && (
                         <span className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold text-white shadow-sm ${
                           paper.source === "semantic_scholar" 

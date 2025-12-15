@@ -401,25 +401,57 @@ export default function WorksheetDetailPage() {
     if (order === "alphabetical") {
       sortedCitations = sortCitationsAlphabetically(uniqueCitations);
     } else {
-      // 出現順の場合、paragraphとcitation_orderが必要
-      const citationsWithParagraph = uniqueCitations.filter((c: any) => 
-        c.paragraph && c.citation_order !== undefined
-      );
+      // 出現順の場合: テキスト内でのフィールドコードの出現位置に基づいてソート
+      const sortedCitationsWithPosition = uniqueCitations
+        .filter((c: any) => c && c.paper && c.paper.id && c.id)
+        .map((c: any) => {
+          // パラグラフを取得
+          const para = paragraphs.find(
+            (p) => p && p.id === c.paragraph_id
+          );
+          
+          if (!para || !para.content) {
+            return { citation: c, paragraph: para, position: Infinity, paraNumber: 0 };
+          }
+          
+          // フィールドコードのパターン: [cite:citation_id:paper_id]
+          const escapedCitationId = (c.id || "").replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const fieldCodePattern = new RegExp(`\\[cite:${escapedCitationId}:[^\\]]+\\]`);
+          const content = para.content;
+          const match = content.match(fieldCodePattern);
+          const position = match ? (match.index ?? Infinity) : Infinity;
+          
+          const paraNumber = parseInt((para.paragraph_number || "").replace("P", "")) || 0;
+          
+          return { citation: c, paragraph: para, position, paraNumber };
+        })
+        .sort((a, b) => {
+          // まずパラグラフ番号で比較
+          if (a.paraNumber !== b.paraNumber) {
+            return a.paraNumber - b.paraNumber;
+          }
+          // 同じパラグラフ内では、テキスト内での出現位置で比較
+          if (a.position !== b.position) {
+            return a.position - b.position;
+          }
+          // 同じ位置の場合はcitation_orderで比較（フォールバック）
+          return (a.citation.citation_order || 0) - (b.citation.citation_order || 0);
+        })
+        .map(item => item.citation);
       
-      if (citationsWithParagraph.length > 0) {
-        sortedCitations = sortCitationsByAppearance(citationsWithParagraph);
+      if (sortedCitationsWithPosition.length > 0) {
+        sortedCitations = sortedCitationsWithPosition;
       } else {
-        // フォールバック: 元のcitationsから再試行
-        const originalWithParagraph = citations.filter((c: any) => 
+        // フォールバック: 従来の方法でソート
+        const citationsWithParagraph = uniqueCitations.filter((c: any) => 
           c.paragraph && c.citation_order !== undefined
         );
         
-        if (originalWithParagraph.length > 0) {
-          const reUnique = getUniqueCitations(originalWithParagraph);
-          sortedCitations = sortCitationsByAppearance(reUnique);
+        if (citationsWithParagraph.length > 0) {
+          sortedCitations = sortCitationsByAppearance(citationsWithParagraph);
         } else {
           // それでもダメな場合はアルファベット順
-          console.warn("No citations with paragraph/citation_order found in getCitationNumberMap, falling back to alphabetical");
+          console.warn("No citations with field codes found in getCitationNumberMap, falling back to alphabetical");
           sortedCitations = sortCitationsAlphabetically(uniqueCitations);
         }
       }
@@ -1225,49 +1257,57 @@ export default function WorksheetDetailPage() {
                   if (citationOrder === "alphabetical") {
                     sortedCitations = sortCitationsAlphabetically(uniqueCitations);
                   } else {
-                    // 出現順の場合、paragraphとcitation_orderが必要
-                    // まず、paragraphとcitation_orderが存在する引用を確認
-                    console.log("Unique citations before filtering:", uniqueCitations);
-                    console.log("Checking paragraph and citation_order:", uniqueCitations.map((c: any) => ({
-                      hasParagraph: !!c.paragraph,
-                      hasCitationOrder: c.citation_order !== undefined,
-                      paragraph: c.paragraph,
-                      citation_order: c.citation_order
-                    })));
+                    // 出現順の場合: テキスト内でのフィールドコードの出現位置に基づいてソート
+                    const sortedCitationsWithPosition = uniqueCitations
+                      .filter((c: any) => c && c.paper && c.paper.id && c.id)
+                      .map((c: any) => {
+                        // パラグラフを取得
+                        const para = paragraphs.find(
+                          (p) => p && p.id === c.paragraph_id
+                        );
+                        
+                        if (!para || !para.content) {
+                          return { citation: c, paragraph: para, position: Infinity, paraNumber: 0 };
+                        }
+                        
+                        // フィールドコードのパターン: [cite:citation_id:paper_id]
+                        const escapedCitationId = (c.id || "").replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                        const fieldCodePattern = new RegExp(`\\[cite:${escapedCitationId}:[^\\]]+\\]`);
+                        const content = para.content;
+                        const match = content.match(fieldCodePattern);
+                        const position = match ? (match.index ?? Infinity) : Infinity;
+                        
+                        const paraNumber = parseInt((para.paragraph_number || "").replace("P", "")) || 0;
+                        
+                        return { citation: c, paragraph: para, position, paraNumber };
+                      })
+                      .sort((a, b) => {
+                        // まずパラグラフ番号で比較
+                        if (a.paraNumber !== b.paraNumber) {
+                          return a.paraNumber - b.paraNumber;
+                        }
+                        // 同じパラグラフ内では、テキスト内での出現位置で比較
+                        if (a.position !== b.position) {
+                          return a.position - b.position;
+                        }
+                        // 同じ位置の場合はcitation_orderで比較（フォールバック）
+                        return (a.citation.citation_order || 0) - (b.citation.citation_order || 0);
+                      })
+                      .map(item => item.citation);
                     
-                    // paragraphとcitation_orderが存在する引用のみをフィルタリング
-                    const citationsWithParagraph = uniqueCitations.filter((c: any) => {
-                      const hasParagraph = !!c.paragraph;
-                      const hasCitationOrder = c.citation_order !== undefined;
-                      if (!hasParagraph || !hasCitationOrder) {
-                        console.warn("Citation missing required fields:", {
-                          paperId: c.paper?.id || c.paper_id,
-                          hasParagraph,
-                          hasCitationOrder,
-                          citation: c
-                        });
-                      }
-                      return hasParagraph && hasCitationOrder;
-                    });
-                    
-                    console.log("Citations with paragraph:", citationsWithParagraph.length, citationsWithParagraph);
-                    
-                    if (citationsWithParagraph.length > 0) {
-                      sortedCitations = sortCitationsByAppearance(citationsWithParagraph);
+                    if (sortedCitationsWithPosition.length > 0) {
+                      sortedCitations = sortedCitationsWithPosition;
                     } else {
-                      // paragraphやcitation_orderが欠けている場合は、元のcitationsから再取得を試みる
-                      console.warn("All citations missing paragraph or citation_order, trying original citations");
-                      const originalWithParagraph = citations.filter((c: any) => 
+                      // フォールバック: 従来の方法でソート
+                      const citationsWithParagraph = uniqueCitations.filter((c: any) => 
                         c.paragraph && c.citation_order !== undefined
                       );
                       
-                      if (originalWithParagraph.length > 0) {
-                        // 元のcitationsから重複排除を再実行
-                        const reUnique = getUniqueCitations(originalWithParagraph);
-                        sortedCitations = sortCitationsByAppearance(reUnique);
+                      if (citationsWithParagraph.length > 0) {
+                        sortedCitations = sortCitationsByAppearance(citationsWithParagraph);
                       } else {
                         // それでもダメな場合は、アルファベット順でソート
-                        console.warn("No citations with paragraph/citation_order found, falling back to alphabetical");
+                        console.warn("No citations with field codes found, falling back to alphabetical");
                         sortedCitations = sortCitationsAlphabetically(uniqueCitations);
                       }
                     }

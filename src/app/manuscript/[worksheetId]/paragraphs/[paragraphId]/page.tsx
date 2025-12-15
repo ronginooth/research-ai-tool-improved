@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { FileText, Edit, BookOpen, CheckSquare, Square, X, Menu, MoreVertical } from "lucide-react";
@@ -109,6 +109,8 @@ export default function ParagraphDetailPage() {
   const [useAdvancedSearch, setUseAdvancedSearch] = useState<boolean>(false);
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(false); // 初期は閉じる
   const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
+  const [selectedCitations, setSelectedCitations] = useState<Set<string>>(new Set());
+  const contentTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   // レスポンシブ対応: 画面幅に応じてサイドバーを自動で閉じる
   useEffect(() => {
@@ -917,6 +919,258 @@ export default function ParagraphDetailPage() {
     }
   };
 
+  /**
+   * 現在の設定（ABC順/出現順）に基づいて引用番号を計算
+   */
+  const calculateCitationNumbers = (): Map<string, number> => {
+    const citationNumberMap = new Map<string, number>();
+    
+    // allCitationsが空の場合は、現在のパラグラフのcitationsを使う
+    const citationsToUse = (allCitations && allCitations.length > 0) ? allCitations : (citations || []);
+    
+    // 安全チェック: citationsToUseが存在しない場合は空のMapを返す
+    if (!citationsToUse || citationsToUse.length === 0) {
+      console.warn("[Calculate Citation Numbers] No citations available");
+      return citationNumberMap;
+    }
+    
+    console.log("[Calculate Citation Numbers] Using citations:", citationsToUse.length, "order:", citationOrder);
+    
+    if (citationOrder === "appearance") {
+      // 出現順の場合: テキスト内でのフィールドコードの出現位置に基づいてソート
+      const sortedCitations = [...citationsToUse]
+        .filter((c) => c && c.paper && c.paper.id && c.id)
+        .map((c) => {
+          // パラグラフを取得
+          const para = allParagraphs?.find(
+            (p) => p && p.id === c.paragraph_id
+          ) || (c.paragraph_id === paragraphId && paragraph ? paragraph : null);
+          
+          if (!para || !para.content) {
+            console.log(`[Calculate Citation Numbers] No paragraph or content for citation ${c.id}`);
+            return { citation: c, paragraph: para, position: Infinity, paraNumber: 0 };
+          }
+          
+          // フィールドコードのパターン: [cite:citation_id:paper_id]
+          // citation_idをエスケープ（特殊文字をエスケープ）
+          const escapedCitationId = (c.id || "").replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+          const fieldCodePattern = new RegExp(`\\[cite:${escapedCitationId}:[^\\]]+\\]`);
+          const content = para.content;
+          const match = content.match(fieldCodePattern);
+          const position = match ? (match.index ?? Infinity) : Infinity;
+          
+          console.log(`[Calculate Citation Numbers] Citation ${c.id} in paragraph ${para.paragraph_number}: position=${position}, content length=${content.length}`);
+          
+          const paraNumber = parseInt((para.paragraph_number || "").replace("P", "")) || 0;
+          
+          return { citation: c, paragraph: para, position, paraNumber };
+        })
+        .sort((a, b) => {
+          // まずパラグラフ番号で比較
+          if (a.paraNumber !== b.paraNumber) {
+            return a.paraNumber - b.paraNumber;
+          }
+          // 同じパラグラフ内では、テキスト内での出現位置で比較
+          if (a.position !== b.position) {
+            return a.position - b.position;
+          }
+          // 同じ位置の場合はcitation_orderで比較（フォールバック）
+          return (a.citation.citation_order || 0) - (b.citation.citation_order || 0);
+        })
+        .map(item => item.citation);
+      
+      console.log("[Calculate Citation Numbers] Sorted citations (appearance order):", sortedCitations.map(c => ({ id: c.id, paperId: c.paper?.id })));
+
+      // 同一論文は同じ番号を割り当て
+      const paperIdToNumber = new Map<string, number>();
+      let currentNumber = 1;
+      sortedCitations.forEach((citation) => {
+        if (!citation || !citation.paper) return;
+        const paperId = citation.paper.id;
+        if (paperId && !paperIdToNumber.has(paperId)) {
+          paperIdToNumber.set(paperId, currentNumber);
+          currentNumber++;
+        }
+        if (paperId) {
+          const number = paperIdToNumber.get(paperId);
+          if (number !== undefined) {
+            citationNumberMap.set(paperId, number);
+          }
+        }
+      });
+    } else {
+      // ABC順の場合
+      const sortedCitations = [...citationsToUse]
+        .filter((c) => c && c.paper && c.paper.id)
+        .sort((a, b) => {
+          if (!a || !b) return 0;
+          const authorA =
+            (a.paper?.authors || "")
+              .split(",")[0]
+              ?.trim() || "";
+          const authorB =
+            (b.paper?.authors || "")
+              .split(",")[0]
+              ?.trim() || "";
+          return authorA.localeCompare(authorB);
+        });
+
+      // 同一論文は同じ番号を割り当て
+      const paperIdToNumber = new Map<string, number>();
+      let currentNumber = 1;
+      sortedCitations.forEach((citation) => {
+        if (!citation || !citation.paper) return;
+        const paperId = citation.paper.id;
+        if (paperId && !paperIdToNumber.has(paperId)) {
+          paperIdToNumber.set(paperId, currentNumber);
+          currentNumber++;
+        }
+        if (paperId) {
+          const number = paperIdToNumber.get(paperId);
+          if (number !== undefined) {
+            citationNumberMap.set(paperId, number);
+          }
+        }
+      });
+    }
+
+    return citationNumberMap;
+  };
+
+  /**
+   * カーソル位置に引用マークを挿入
+   */
+  const handleInsertCitationMarks = () => {
+    try {
+      if (selectedCitations.size === 0) {
+        alert("引用論文を選択してください");
+        return;
+      }
+
+      if (!contentTextareaRef.current || !paragraph) {
+        alert("テキストエリアにフォーカスしてください");
+        return;
+      }
+
+      const textarea = contentTextareaRef.current;
+      const cursorPosition = textarea.selectionStart || 0;
+    
+    // 選択された引用を取得
+    const selectedCitationList = (citations || []).filter(c => 
+      c && c.id && selectedCitations.has(c.id)
+    );
+
+    if (selectedCitationList.length === 0) {
+      alert("選択された引用が見つかりませんでした");
+      return;
+    }
+
+    // 現在の設定に基づいて引用番号を計算
+    const citationNumberMap = calculateCitationNumbers();
+
+    // デバッグ情報
+    console.log("[Insert Citation Marks] allCitations:", allCitations?.length || 0);
+    console.log("[Insert Citation Marks] selectedCitationList:", selectedCitationList);
+    console.log("[Insert Citation Marks] citationNumberMap:", Array.from(citationNumberMap.entries()));
+
+    // フィールドコード形式で引用マークを生成
+    // 形式: [cite:citation_id:paper_id]
+    const citationMarks = selectedCitationList
+      .map(c => {
+        if (!c) return null;
+        const citationId = c.id;
+        const paperId = c.paper?.id || c.paper_id;
+        
+        if (!citationId || !paperId) {
+          console.warn("[Insert Citation Marks] Missing citationId or paperId:", { citationId, paperId });
+          return null;
+        }
+        
+        return `[cite:${citationId}:${paperId}]`;
+      })
+      .filter((mark): mark is string => mark !== null);
+
+    console.log("[Insert Citation Marks] citationMarks:", citationMarks);
+
+    if (citationMarks.length === 0) {
+      alert("引用マークを生成できませんでした。引用情報が不完全です。");
+      return;
+    }
+
+    // 複数の引用マークを連結（スペースなしで連結）
+    const citationMark = citationMarks.join("");
+
+    // カーソル位置に挿入
+    const currentContent = paragraph.content || "";
+    const newContent = 
+      currentContent.substring(0, cursorPosition) +
+      citationMark +
+      currentContent.substring(cursorPosition);
+
+    // 状態を更新
+    setParagraph(prev => 
+      prev ? { ...prev, content: newContent } : null
+    );
+
+    // allParagraphsも更新（出現順のソートに必要）
+    setAllParagraphs(prev => 
+      prev.map(p => 
+        p.id === paragraphId 
+          ? { ...p, content: newContent }
+          : p
+      )
+    );
+
+    // 選択をクリア
+    setSelectedCitations(new Set());
+
+    // カーソル位置を更新
+    setTimeout(() => {
+      if (textarea) {
+        const newPosition = cursorPosition + citationMark.length;
+        textarea.setSelectionRange(newPosition, newPosition);
+        textarea.focus();
+      }
+    }, 0);
+    } catch (error: any) {
+      console.error("[Insert Citation Marks] Error:", error);
+      alert(`引用マークの挿入中にエラーが発生しました: ${error?.message || "不明なエラー"}`);
+    }
+  };
+
+  /**
+   * 引用論文の選択をトグル
+   */
+  const handleToggleCitationSelection = (citationId: string) => {
+    setSelectedCitations(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(citationId)) {
+        newSet.delete(citationId);
+      } else {
+        newSet.add(citationId);
+      }
+      return newSet;
+    });
+  };
+
+  /**
+   * すべての引用論文を選択/解除
+   */
+  const handleSelectAllCitations = () => {
+    if (!citations || citations.length === 0) {
+      return;
+    }
+    
+    if (selectedCitations.size === citations.length) {
+      setSelectedCitations(new Set());
+    } else {
+      const citationIds = citations
+        .filter(c => c && c.id)
+        .map(c => c.id);
+      setSelectedCitations(new Set(citationIds));
+    }
+  };
+
   const fetchAvailableTags = async () => {
     try {
       const response = await fetch(`/api/library/tags?userId=${DEFAULT_USER}`);
@@ -1316,27 +1570,28 @@ export default function ParagraphDetailPage() {
 
         {/* 中央: メインエディタ */}
         <div className="flex-1 flex flex-col overflow-hidden relative">
-          <div className="p-6 overflow-y-auto">
-            {/* ハンバーガーメニューボタン（左カラムが閉じている時） */}
-            {!leftSidebarOpen && (
-              <button
-                onClick={() => setLeftSidebarOpen(true)}
-                className="absolute left-2 top-2 z-20 p-2 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] hover:bg-[var(--color-background)] text-[var(--color-text)] shadow-md"
-                title="パラグラフ一覧を開く"
-              >
-                <Menu className="h-5 w-5" />
-              </button>
-            )}
+          {/* ハンバーガーメニューボタン（左カラムが閉じている時） */}
+          {!leftSidebarOpen && (
+            <button
+              onClick={() => setLeftSidebarOpen(true)}
+              className="absolute left-2 top-2 z-20 p-2 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] hover:bg-[var(--color-background)] text-[var(--color-text)] shadow-md"
+              title="パラグラフ一覧を開く"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+          )}
 
-            {/* 三点マークボタン（右カラムが閉じている時） */}
-            {!rightSidebarOpen && (
-              <button
-                onClick={() => setRightSidebarOpen(true)}
-                className="absolute right-2 top-2 z-10 p-2 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] hover:bg-[var(--color-background)] text-[var(--color-text)] shadow-md"
-              >
-                <MoreVertical className="h-5 w-5" />
-              </button>
-            )}
+          {/* 三点マークボタン（右カラムが閉じている時） */}
+          {!rightSidebarOpen && (
+            <button
+              onClick={() => setRightSidebarOpen(true)}
+              className="absolute right-2 top-2 z-10 p-2 rounded-lg bg-[var(--color-surface)] border border-[var(--color-border)] hover:bg-[var(--color-background)] text-[var(--color-text)] shadow-md"
+            >
+              <MoreVertical className="h-5 w-5" />
+            </button>
+          )}
+
+          <div className="p-6 overflow-y-auto">
 
             {/* 情報エリア（メインカラム上部） */}
             {paragraph && (
@@ -1598,12 +1853,22 @@ export default function ParagraphDetailPage() {
                   </div>
 
                   <textarea
+                    ref={contentTextareaRef}
                     value={paragraph.content || ""}
-                    onChange={(e) =>
+                    onChange={(e) => {
+                      const newContent = e.target.value;
                       setParagraph((prev) =>
-                        prev ? { ...prev, content: e.target.value } : null
-                      )
-                    }
+                        prev ? { ...prev, content: newContent } : null
+                      );
+                      // allParagraphsも更新（出現順のソートに必要）
+                      setAllParagraphs(prev => 
+                        prev.map(p => 
+                          p.id === paragraphId 
+                            ? { ...p, content: newContent }
+                            : p
+                        )
+                      );
+                    }}
                     onMouseUp={(e) => {
                       const textarea = e.currentTarget;
                       const selected = textarea.value
@@ -1780,31 +2045,43 @@ export default function ParagraphDetailPage() {
                                 number
                               >();
                               if (citationOrder === "appearance") {
-                                // 出現順の場合、引用をソートして番号を割り当て
+                                // 出現順の場合: テキスト内でのフィールドコードの出現位置に基づいてソート
                                 const sortedCitations = [...allCitations]
-                                  .filter((c) => c.paper && c.paper.id)
+                                  .filter((c) => c.paper && c.paper.id && c.id)
+                                  .map((c) => {
+                                    // パラグラフを取得
+                                    const para = allParagraphs.find(
+                                      (p) => p.id === c.paragraph_id
+                                    );
+                                    
+                                    if (!para || !para.content) {
+                                      return { citation: c, paragraph: para, position: Infinity, paraNumber: 0 };
+                                    }
+                                    
+                                    // フィールドコードのパターン: [cite:citation_id:paper_id]
+                                    const escapedCitationId = (c.id || "").replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                                    const fieldCodePattern = new RegExp(`\\[cite:${escapedCitationId}:[^\\]]+\\]`);
+                                    const content = para.content;
+                                    const match = content.match(fieldCodePattern);
+                                    const position = match ? (match.index ?? Infinity) : Infinity;
+                                    
+                                    const paraNumber = parseInt((para.paragraph_number || "").replace("P", "")) || 0;
+                                    
+                                    return { citation: c, paragraph: para, position, paraNumber };
+                                  })
                                   .sort((a, b) => {
-                                    const paraA = allParagraphs.find(
-                                      (p) => p.id === a.paragraph_id
-                                    );
-                                    const paraB = allParagraphs.find(
-                                      (p) => p.id === b.paragraph_id
-                                    );
-                                    if (!paraA || !paraB) return 0;
-                                    const numA =
-                                      parseInt(
-                                        paraA.paragraph_number.replace("P", "")
-                                      ) || 0;
-                                    const numB =
-                                      parseInt(
-                                        paraB.paragraph_number.replace("P", "")
-                                      ) || 0;
-                                    if (numA !== numB) return numA - numB;
-                                    return (
-                                      (a.citation_order || 0) -
-                                      (b.citation_order || 0)
-                                    );
-                                  });
+                                    // まずパラグラフ番号で比較
+                                    if (a.paraNumber !== b.paraNumber) {
+                                      return a.paraNumber - b.paraNumber;
+                                    }
+                                    // 同じパラグラフ内では、テキスト内での出現位置で比較
+                                    if (a.position !== b.position) {
+                                      return a.position - b.position;
+                                    }
+                                    // 同じ位置の場合はcitation_orderで比較（フォールバック）
+                                    return (a.citation.citation_order || 0) - (b.citation.citation_order || 0);
+                                  })
+                                  .map(item => item.citation);
 
                                 // 同一論文は同じ番号を割り当て
                                 const paperIdToNumber = new Map<
@@ -1954,9 +2231,9 @@ export default function ParagraphDetailPage() {
               }`}
             >
               <div className="p-4 border-b border-[var(--color-border)]">
-                <div className="flex justify-between items-center">
+                <div className="flex justify-between items-center mb-2">
                   <h2 className="text-lg font-semibold text-[var(--color-text)]">
-                    引用論文 ({citations.length})
+                    引用論文 ({citations?.length || 0})
                   </h2>
                   <div className="flex items-center gap-2">
                     <button
@@ -1973,6 +2250,32 @@ export default function ParagraphDetailPage() {
                     </button>
                   </div>
                 </div>
+                
+                {/* 選択された引用がある場合、挿入ボタンを表示 */}
+                {selectedCitations.size > 0 && (
+                  <div className="mt-2 p-2 bg-[var(--color-primary)]/10 border border-[var(--color-primary)] rounded">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm text-[var(--color-text)]">
+                        {selectedCitations.size}件選択中
+                      </span>
+                      <button
+                        onClick={handleSelectAllCitations}
+                        className="text-xs text-[var(--color-primary)] hover:underline"
+                      >
+                        {selectedCitations.size === (citations?.length || 0) ? "すべて解除" : "すべて選択"}
+                      </button>
+                    </div>
+                    <div className="text-xs text-[var(--color-text-secondary)] mb-2">
+                      現在の並び順: {citationOrder === "alphabetical" ? "ABC順" : "出現順"}
+                    </div>
+                    <button
+                      onClick={handleInsertCitationMarks}
+                      className="w-full bg-[var(--color-primary)] text-[var(--color-surface)] px-3 py-2 rounded text-sm hover:opacity-90 font-medium"
+                    >
+                      カーソル位置に引用マークを挿入
+                    </button>
+                  </div>
+                )}
               </div>
               <div className="flex-1 overflow-y-auto p-4">
                 {/* 引用論文コンテンツ */}
@@ -2503,13 +2806,18 @@ export default function ParagraphDetailPage() {
                     </div>
                   )}
 
-                  {citations.length === 0 ? (
+                  {!citations || citations.length === 0 ? (
                     <div className="text-sm text-[var(--color-text-secondary)] text-center py-4">
                       引用論文がありません
                     </div>
                   ) : (
                     <div className="space-y-2">
                       {citations.map((citation) => {
+                        // 安全チェック
+                        if (!citation || !citation.paper || !citation.id) {
+                          return null;
+                        }
+                        
                         // My Libraryに保存されているかチェック
                         const isSaved = savedPaperIds.has(citation.paper.id);
                         const libraryId = citation.paper.id; // user_library.id（UUID）
@@ -2517,9 +2825,26 @@ export default function ParagraphDetailPage() {
                         return (
                           <div
                             key={citation.id}
-                            className="relative p-3 border border-[var(--color-border)] rounded hover:bg-[var(--color-background)] bg-transparent"
+                            className={`relative p-3 border rounded hover:bg-[var(--color-background)] ${
+                              selectedCitations.has(citation.id)
+                                ? "bg-[var(--color-primary)]/10 border-[var(--color-primary)]"
+                                : "border-[var(--color-border)] bg-transparent"
+                            }`}
                           >
-                            <div className="flex justify-between items-start">
+                            <div className="flex items-start gap-2">
+                              {/* チェックボックス */}
+                              <button
+                                onClick={() => handleToggleCitationSelection(citation.id)}
+                                className="mt-1 flex-shrink-0"
+                                title="選択"
+                              >
+                                {selectedCitations.has(citation.id) ? (
+                                  <CheckSquare className="h-5 w-5 text-[var(--color-primary)]" />
+                                ) : (
+                                  <Square className="h-5 w-5 text-[var(--color-text-secondary)]" />
+                                )}
+                              </button>
+                              
                               <div className="flex-1">
                                 <div className="font-semibold text-sm text-[var(--color-text)]">
                                   {citation.paper.title}
