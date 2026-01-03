@@ -273,7 +273,10 @@ export default function ParagraphDetailPage() {
             title: paragraph.title,
             content: paragraph.content,
             description: paragraph.description,
-            status: paragraph.content ? "in_progress" : "pending",
+            status:
+              paragraph.status === "pending" && paragraph.content && paragraph.content.trim().length > 0
+                ? "in_progress"
+                : paragraph.status,
             japanese_translation: japaneseTranslation || null,
           }),
         }
@@ -782,9 +785,8 @@ export default function ParagraphDetailPage() {
         }
 
         const displayText = paperInfo?.authors
-          ? `(${paperInfo.authors.split(",")[0]?.trim() || "Author"}, ${
-              paperInfo.year || ""
-            })`
+          ? `(${paperInfo.authors.split(",")[0]?.trim() || "Author"}, ${paperInfo.year || ""
+          })`
           : `(${paperInfo?.title?.substring(0, 30) || "Citation"}...)`;
 
         const fieldCode = generateFieldCode(citationId, paperId, displayText);
@@ -924,18 +926,18 @@ export default function ParagraphDetailPage() {
    */
   const calculateCitationNumbers = (): Map<string, number> => {
     const citationNumberMap = new Map<string, number>();
-    
+
     // allCitationsが空の場合は、現在のパラグラフのcitationsを使う
     const citationsToUse = (allCitations && allCitations.length > 0) ? allCitations : (citations || []);
-    
+
     // 安全チェック: citationsToUseが存在しない場合は空のMapを返す
     if (!citationsToUse || citationsToUse.length === 0) {
       console.warn("[Calculate Citation Numbers] No citations available");
       return citationNumberMap;
     }
-    
+
     console.log("[Calculate Citation Numbers] Using citations:", citationsToUse.length, "order:", citationOrder);
-    
+
     if (citationOrder === "appearance") {
       // 出現順の場合: テキスト内でのフィールドコードの出現位置に基づいてソート
       const sortedCitations = [...citationsToUse]
@@ -945,12 +947,12 @@ export default function ParagraphDetailPage() {
           const para = allParagraphs?.find(
             (p) => p && p.id === c.paragraph_id
           ) || (c.paragraph_id === paragraphId && paragraph ? paragraph : null);
-          
+
           if (!para || !para.content) {
             console.log(`[Calculate Citation Numbers] No paragraph or content for citation ${c.id}`);
             return { citation: c, paragraph: para, position: Infinity, paraNumber: 0 };
           }
-          
+
           // フィールドコードのパターン: [cite:citation_id:paper_id]
           // citation_idをエスケープ（特殊文字をエスケープ）
           const escapedCitationId = (c.id || "").replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -958,11 +960,11 @@ export default function ParagraphDetailPage() {
           const content = para.content;
           const match = content.match(fieldCodePattern);
           const position = match ? (match.index ?? Infinity) : Infinity;
-          
+
           console.log(`[Calculate Citation Numbers] Citation ${c.id} in paragraph ${para.paragraph_number}: position=${position}, content length=${content.length}`);
-          
+
           const paraNumber = parseInt((para.paragraph_number || "").replace("P", "")) || 0;
-          
+
           return { citation: c, paragraph: para, position, paraNumber };
         })
         .sort((a, b) => {
@@ -978,7 +980,7 @@ export default function ParagraphDetailPage() {
           return (a.citation.citation_order || 0) - (b.citation.citation_order || 0);
         })
         .map(item => item.citation);
-      
+
       console.log("[Calculate Citation Numbers] Sorted citations (appearance order):", sortedCitations.map(c => ({ id: c.id, paperId: c.paper?.id })));
 
       // 同一論文は同じ番号を割り当て
@@ -1054,84 +1056,84 @@ export default function ParagraphDetailPage() {
 
       const textarea = contentTextareaRef.current;
       const cursorPosition = textarea.selectionStart || 0;
-    
-    // 選択された引用を取得
-    const selectedCitationList = (citations || []).filter(c => 
-      c && c.id && selectedCitations.has(c.id)
-    );
 
-    if (selectedCitationList.length === 0) {
-      alert("選択された引用が見つかりませんでした");
-      return;
-    }
+      // 選択された引用を取得
+      const selectedCitationList = (citations || []).filter(c =>
+        c && c.id && selectedCitations.has(c.id)
+      );
 
-    // 現在の設定に基づいて引用番号を計算
-    const citationNumberMap = calculateCitationNumbers();
-
-    // デバッグ情報
-    console.log("[Insert Citation Marks] allCitations:", allCitations?.length || 0);
-    console.log("[Insert Citation Marks] selectedCitationList:", selectedCitationList);
-    console.log("[Insert Citation Marks] citationNumberMap:", Array.from(citationNumberMap.entries()));
-
-    // フィールドコード形式で引用マークを生成
-    // 形式: [cite:citation_id:paper_id]
-    const citationMarks = selectedCitationList
-      .map(c => {
-        if (!c) return null;
-        const citationId = c.id;
-        const paperId = c.paper?.id || c.paper_id;
-        
-        if (!citationId || !paperId) {
-          console.warn("[Insert Citation Marks] Missing citationId or paperId:", { citationId, paperId });
-          return null;
-        }
-        
-        return `[cite:${citationId}:${paperId}]`;
-      })
-      .filter((mark): mark is string => mark !== null);
-
-    console.log("[Insert Citation Marks] citationMarks:", citationMarks);
-
-    if (citationMarks.length === 0) {
-      alert("引用マークを生成できませんでした。引用情報が不完全です。");
-      return;
-    }
-
-    // 複数の引用マークを連結（スペースなしで連結）
-    const citationMark = citationMarks.join("");
-
-    // カーソル位置に挿入
-    const currentContent = paragraph.content || "";
-    const newContent = 
-      currentContent.substring(0, cursorPosition) +
-      citationMark +
-      currentContent.substring(cursorPosition);
-
-    // 状態を更新
-    setParagraph(prev => 
-      prev ? { ...prev, content: newContent } : null
-    );
-
-    // allParagraphsも更新（出現順のソートに必要）
-    setAllParagraphs(prev => 
-      prev.map(p => 
-        p.id === paragraphId 
-          ? { ...p, content: newContent }
-          : p
-      )
-    );
-
-    // 選択をクリア
-    setSelectedCitations(new Set());
-
-    // カーソル位置を更新
-    setTimeout(() => {
-      if (textarea) {
-        const newPosition = cursorPosition + citationMark.length;
-        textarea.setSelectionRange(newPosition, newPosition);
-        textarea.focus();
+      if (selectedCitationList.length === 0) {
+        alert("選択された引用が見つかりませんでした");
+        return;
       }
-    }, 0);
+
+      // 現在の設定に基づいて引用番号を計算
+      const citationNumberMap = calculateCitationNumbers();
+
+      // デバッグ情報
+      console.log("[Insert Citation Marks] allCitations:", allCitations?.length || 0);
+      console.log("[Insert Citation Marks] selectedCitationList:", selectedCitationList);
+      console.log("[Insert Citation Marks] citationNumberMap:", Array.from(citationNumberMap.entries()));
+
+      // フィールドコード形式で引用マークを生成
+      // 形式: [cite:citation_id:paper_id]
+      const citationMarks = selectedCitationList
+        .map(c => {
+          if (!c) return null;
+          const citationId = c.id;
+          const paperId = c.paper?.id || c.paper_id;
+
+          if (!citationId || !paperId) {
+            console.warn("[Insert Citation Marks] Missing citationId or paperId:", { citationId, paperId });
+            return null;
+          }
+
+          return `[cite:${citationId}:${paperId}]`;
+        })
+        .filter((mark): mark is string => mark !== null);
+
+      console.log("[Insert Citation Marks] citationMarks:", citationMarks);
+
+      if (citationMarks.length === 0) {
+        alert("引用マークを生成できませんでした。引用情報が不完全です。");
+        return;
+      }
+
+      // 複数の引用マークを連結（スペースなしで連結）
+      const citationMark = citationMarks.join("");
+
+      // カーソル位置に挿入
+      const currentContent = paragraph.content || "";
+      const newContent =
+        currentContent.substring(0, cursorPosition) +
+        citationMark +
+        currentContent.substring(cursorPosition);
+
+      // 状態を更新
+      setParagraph(prev =>
+        prev ? { ...prev, content: newContent } : null
+      );
+
+      // allParagraphsも更新（出現順のソートに必要）
+      setAllParagraphs(prev =>
+        prev.map(p =>
+          p.id === paragraphId
+            ? { ...p, content: newContent }
+            : p
+        )
+      );
+
+      // 選択をクリア
+      setSelectedCitations(new Set());
+
+      // カーソル位置を更新
+      setTimeout(() => {
+        if (textarea) {
+          const newPosition = cursorPosition + citationMark.length;
+          textarea.setSelectionRange(newPosition, newPosition);
+          textarea.focus();
+        }
+      }, 0);
     } catch (error: any) {
       console.error("[Insert Citation Marks] Error:", error);
       alert(`引用マークの挿入中にエラーが発生しました: ${error?.message || "不明なエラー"}`);
@@ -1160,7 +1162,7 @@ export default function ParagraphDetailPage() {
     if (!citations || citations.length === 0) {
       return;
     }
-    
+
     if (selectedCitations.size === citations.length) {
       setSelectedCitations(new Set());
     } else {
@@ -1221,16 +1223,16 @@ export default function ParagraphDetailPage() {
           : "/api/search-simple";
         const requestBody = useAdvancedSearch
           ? {
-              topic: searchQueryText,
-              maxPapers: 20, // フィルター前により多くの論文を取得
-              sources: ["semantic_scholar", "pubmed"], // Semantic ScholarとPubMedの両方で検索
-              provider: "gemini",
-            }
+            topic: searchQueryText,
+            maxPapers: 20, // フィルター前により多くの論文を取得
+            sources: ["semantic_scholar", "pubmed"], // Semantic ScholarとPubMedの両方で検索
+            provider: "gemini",
+          }
           : {
-              query: searchQueryText,
-              limit: 20, // フィルター前により多くの論文を取得
-              sources: ["semantic_scholar", "pubmed"], // Semantic ScholarとPubMedの両方で検索
-            };
+            query: searchQueryText,
+            limit: 20, // フィルター前により多くの論文を取得
+            sources: ["semantic_scholar", "pubmed"], // Semantic ScholarとPubMedの両方で検索
+          };
 
         const response = await fetch(endpoint, {
           method: "POST",
@@ -1523,9 +1525,8 @@ export default function ParagraphDetailPage() {
       <div className="flex-1 flex overflow-hidden relative">
         {/* 左側: パラグラフ一覧 */}
         <div
-          className={`${
-            leftSidebarOpen ? "w-64" : "w-0 hidden"
-          } transition-all duration-300 border-r border-[var(--color-border)] bg-[var(--color-surface)] flex flex-col overflow-hidden`}
+          className={`${leftSidebarOpen ? "w-64" : "w-0 hidden"
+            } transition-all duration-300 border-r border-[var(--color-border)] bg-[var(--color-surface)] flex flex-col overflow-hidden`}
         >
           <div className="p-4 border-b border-[var(--color-border)]">
             <div className="flex items-center justify-between mb-2">
@@ -1551,11 +1552,10 @@ export default function ParagraphDetailPage() {
               <Link
                 key={p.id}
                 href={`/manuscript/${worksheetId}/paragraphs/${p.id}`}
-                className={`block p-3 mb-2 rounded-lg border transition-colors ${
-                  p.id === paragraphId
+                className={`block p-3 mb-2 rounded-lg border transition-colors ${p.id === paragraphId
                     ? "bg-[var(--color-primary)] text-[var(--color-surface)] border-[var(--color-primary)]"
                     : "bg-[var(--color-background)] text-[var(--color-text)] border-[var(--color-border)] hover:bg-[var(--color-surface)]"
-                }`}
+                  }`}
               >
                 <div className="text-sm font-semibold mb-1">
                   {p.paragraph_number}
@@ -1598,9 +1598,25 @@ export default function ParagraphDetailPage() {
               <div className="mb-6 p-4 bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg">
                 <div className="flex items-center gap-4 text-xs text-[var(--color-text-secondary)]">
                   <div className="flex items-center gap-2">
-                    <span className="text-[var(--color-text)]">
-                      {getStatusIcon(paragraph.status)} {paragraph.status}
-                    </span>
+                    <select
+                      value={paragraph.status}
+                      onChange={(e) =>
+                        setParagraph((prev) =>
+                          prev ? { ...prev, status: e.target.value } : null
+                        )
+                      }
+                      className="bg-transparent text-[var(--color-text)] border border-[var(--color-border)] rounded px-2 py-1 cursor-pointer hover:bg-[var(--color-background)] text-xs appearance-none pr-6 relative"
+                      style={{
+                        backgroundImage: `url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23666%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")`,
+                        backgroundRepeat: "no-repeat",
+                        backgroundPosition: "right 0.3rem center",
+                        backgroundSize: "0.65em auto"
+                      }}
+                    >
+                      <option value="pending">❌ Pending</option>
+                      <option value="in_progress">⏳ In Progress</option>
+                      <option value="completed">✅ Completed</option>
+                    </select>
                   </div>
                   <div className="flex items-center gap-2">
                     <span
@@ -1767,22 +1783,20 @@ export default function ParagraphDetailPage() {
             <div className="mb-4 flex gap-2 border-b border-[var(--color-border)]">
               <button
                 onClick={() => setViewMode("edit")}
-                className={`px-4 py-2 flex items-center gap-2 transition-colors ${
-                  viewMode === "edit"
+                className={`px-4 py-2 flex items-center gap-2 transition-colors ${viewMode === "edit"
                     ? "border-b-2 border-[var(--color-primary)] text-[var(--color-primary)] font-semibold"
                     : "text-[var(--color-text-secondary)] hover:text-[var(--color-text)]"
-                }`}
+                  }`}
               >
                 <Edit className="h-4 w-4" />
                 編集
               </button>
               <button
                 onClick={() => setViewMode("document")}
-                className={`px-4 py-2 flex items-center gap-2 transition-colors ${
-                  viewMode === "document"
+                className={`px-4 py-2 flex items-center gap-2 transition-colors ${viewMode === "document"
                     ? "border-b-2 border-[var(--color-primary)] text-[var(--color-primary)] font-semibold"
                     : "text-[var(--color-text-secondary)] hover:text-[var(--color-text)]"
-                }`}
+                  }`}
               >
                 <FileText className="h-4 w-4" />
                 論文ビュー
@@ -1861,9 +1875,9 @@ export default function ParagraphDetailPage() {
                         prev ? { ...prev, content: newContent } : null
                       );
                       // allParagraphsも更新（出現順のソートに必要）
-                      setAllParagraphs(prev => 
-                        prev.map(p => 
-                          p.id === paragraphId 
+                      setAllParagraphs(prev =>
+                        prev.map(p =>
+                          p.id === paragraphId
                             ? { ...p, content: newContent }
                             : p
                         )
@@ -2053,20 +2067,20 @@ export default function ParagraphDetailPage() {
                                     const para = allParagraphs.find(
                                       (p) => p.id === c.paragraph_id
                                     );
-                                    
+
                                     if (!para || !para.content) {
                                       return { citation: c, paragraph: para, position: Infinity, paraNumber: 0 };
                                     }
-                                    
+
                                     // フィールドコードのパターン: [cite:citation_id:paper_id]
                                     const escapedCitationId = (c.id || "").replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
                                     const fieldCodePattern = new RegExp(`\\[cite:${escapedCitationId}:[^\\]]+\\]`);
                                     const content = para.content;
                                     const match = content.match(fieldCodePattern);
                                     const position = match ? (match.index ?? Infinity) : Infinity;
-                                    
+
                                     const paraNumber = parseInt((para.paragraph_number || "").replace("P", "")) || 0;
-                                    
+
                                     return { citation: c, paragraph: para, position, paraNumber };
                                   })
                                   .sort((a, b) => {
@@ -2224,284 +2238,84 @@ export default function ParagraphDetailPage() {
 
         {/* 右側: 引用論文 */}
         <div
-              className={`${
-                rightSidebarOpen ? "w-96" : "w-0"
-              } transition-all duration-300 border-l border-[var(--color-border)] bg-[var(--color-surface)] flex flex-col overflow-hidden ${
-                rightSidebarOpen ? "" : "hidden"
-              }`}
-            >
-              <div className="p-4 border-b border-[var(--color-border)]">
-                <div className="flex justify-between items-center mb-2">
-                  <h2 className="text-lg font-semibold text-[var(--color-text)]">
-                    引用論文 ({citations?.length || 0})
-                  </h2>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setShowCitationSearch(!showCitationSearch)}
-                      className="bg-[var(--color-primary)] text-[var(--color-surface)] px-3 py-1 rounded text-sm hover:opacity-90"
-                    >
-                      + 追加
-                    </button>
-                    <button
-                      onClick={() => setRightSidebarOpen(false)}
-                      className="p-1 rounded hover:bg-[var(--color-background)] text-[var(--color-text-secondary)]"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-                
-                {/* 選択された引用がある場合、挿入ボタンを表示 */}
-                {selectedCitations.size > 0 && (
-                  <div className="mt-2 p-2 bg-[var(--color-primary)]/10 border border-[var(--color-primary)] rounded">
-                    <div className="flex items-center justify-between mb-2">
-                      <span className="text-sm text-[var(--color-text)]">
-                        {selectedCitations.size}件選択中
-                      </span>
-                      <button
-                        onClick={handleSelectAllCitations}
-                        className="text-xs text-[var(--color-primary)] hover:underline"
-                      >
-                        {selectedCitations.size === (citations?.length || 0) ? "すべて解除" : "すべて選択"}
-                      </button>
-                    </div>
-                    <div className="text-xs text-[var(--color-text-secondary)] mb-2">
-                      現在の並び順: {citationOrder === "alphabetical" ? "ABC順" : "出現順"}
-                    </div>
-                    <button
-                      onClick={handleInsertCitationMarks}
-                      className="w-full bg-[var(--color-primary)] text-[var(--color-surface)] px-3 py-2 rounded text-sm hover:opacity-90 font-medium"
-                    >
-                      カーソル位置に引用マークを挿入
-                    </button>
-                  </div>
-                )}
+          className={`${rightSidebarOpen ? "w-96" : "w-0"
+            } transition-all duration-300 border-l border-[var(--color-border)] bg-[var(--color-surface)] flex flex-col overflow-hidden ${rightSidebarOpen ? "" : "hidden"
+            }`}
+        >
+          <div className="p-4 border-b border-[var(--color-border)]">
+            <div className="flex justify-between items-center mb-2">
+              <h2 className="text-lg font-semibold text-[var(--color-text)]">
+                引用論文 ({citations?.length || 0})
+              </h2>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowCitationSearch(!showCitationSearch)}
+                  className="bg-[var(--color-primary)] text-[var(--color-surface)] px-3 py-1 rounded text-sm hover:opacity-90"
+                >
+                  + 追加
+                </button>
+                <button
+                  onClick={() => setRightSidebarOpen(false)}
+                  className="p-1 rounded hover:bg-[var(--color-background)] text-[var(--color-text-secondary)]"
+                >
+                  <X className="h-4 w-4" />
+                </button>
               </div>
-              <div className="flex-1 overflow-y-auto p-4">
-                {/* 引用論文コンテンツ */}
-                <div className="space-y-4">
-                  {showCitationSearch && (
-                    <div className="mb-4 p-3 bg-[var(--color-background)] rounded border border-[var(--color-border)]">
-                      {/* 検索バー */}
-                      <div className="mb-3">
-                        <div className="flex gap-2 mb-2">
-                          <input
-                            type="text"
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            onKeyPress={(e) =>
-                              e.key === "Enter" && handleSearch()
-                            }
-                            placeholder="論文を検索（タイトル、著者、要約）..."
-                            className="flex-1 px-3 py-2 border border-[var(--color-border)] rounded bg-[var(--color-surface)] text-[var(--color-text)] placeholder:text-[var(--color-text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                            disabled={searching}
-                          />
-                          <button
-                            onClick={handleSearch}
-                            disabled={searching}
-                            className="bg-[var(--color-primary)] text-[var(--color-surface)] px-4 py-2 rounded hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-                          >
-                            {searching && (
-                              <svg
-                                className="animate-spin h-4 w-4 text-white"
-                                xmlns="http://www.w3.org/2000/svg"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                              >
-                                <circle
-                                  className="opacity-25"
-                                  cx="12"
-                                  cy="12"
-                                  r="10"
-                                  stroke="currentColor"
-                                  strokeWidth="4"
-                                ></circle>
-                                <path
-                                  className="opacity-75"
-                                  fill="currentColor"
-                                  d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                                ></path>
-                              </svg>
-                            )}
-                            {searching ? "検索中..." : "検索"}
-                          </button>
-                        </div>
-                        <div className="space-y-2">
-                          <label className="flex items-center gap-2 text-sm">
-                            <input
-                              type="checkbox"
-                              checked={useWebSearch}
-                              onChange={(e) =>
-                                setUseWebSearch(e.target.checked)
-                              }
-                              className="w-4 h-4"
-                              disabled={searching}
-                            />
-                            <span>web（セマンティック検索）</span>
-                          </label>
-                          {useWebSearch && (
-                            <div className="space-y-2 pl-6">
-                              <label className="flex items-center gap-2 text-xs">
-                                <input
-                                  type="checkbox"
-                                  checked={useAdvancedSearch}
-                                  onChange={(e) =>
-                                    setUseAdvancedSearch(e.target.checked)
-                                  }
-                                  className="w-3 h-3"
-                                  disabled={searching}
-                                />
-                                <span className="font-medium">
-                                  高度な検索モード
-                                </span>
-                                <span className="text-[var(--color-text-secondary)] text-xs">
-                                  （多層検索・AIランキング）
-                                </span>
-                              </label>
-                              <div>
-                                <label className="text-xs text-[var(--color-text-secondary)] mb-1 block">
-                                  最小被引用数:
-                                </label>
-                                <input
-                                  type="number"
-                                  value={minCitations}
-                                  onChange={(e) =>
-                                    setMinCitations(e.target.value)
-                                  }
-                                  placeholder="例: 10"
-                                  className="w-full px-2 py-1 border border-[var(--color-border)] rounded text-sm bg-[var(--color-surface)] text-[var(--color-text)] placeholder:text-[var(--color-text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                                  disabled={searching}
-                                  min="0"
-                                />
-                              </div>
-                              <label className="flex items-center gap-2 text-xs">
-                                <input
-                                  type="checkbox"
-                                  checked={sortByCitations}
-                                  onChange={(e) =>
-                                    setSortByCitations(e.target.checked)
-                                  }
-                                  className="w-3 h-3"
-                                  disabled={searching}
-                                />
-                                <span>被引用数が多い順にソート</span>
-                              </label>
-                            </div>
-                          )}
-                        </div>
+            </div>
+
+            {/* 選択された引用がある場合、挿入ボタンを表示 */}
+            {selectedCitations.size > 0 && (
+              <div className="mt-2 p-2 bg-[var(--color-primary)]/10 border border-[var(--color-primary)] rounded">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm text-[var(--color-text)]">
+                    {selectedCitations.size}件選択中
+                  </span>
+                  <button
+                    onClick={handleSelectAllCitations}
+                    className="text-xs text-[var(--color-primary)] hover:underline"
+                  >
+                    {selectedCitations.size === (citations?.length || 0) ? "すべて解除" : "すべて選択"}
+                  </button>
+                </div>
+                <div className="text-xs text-[var(--color-text-secondary)] mb-2">
+                  現在の並び順: {citationOrder === "alphabetical" ? "ABC順" : "出現順"}
+                </div>
+                <button
+                  onClick={handleInsertCitationMarks}
+                  className="w-full bg-[var(--color-primary)] text-[var(--color-surface)] px-3 py-2 rounded text-sm hover:opacity-90 font-medium"
+                >
+                  カーソル位置に引用マークを挿入
+                </button>
+              </div>
+            )}
+          </div>
+          <div className="flex-1 overflow-y-auto p-4">
+            {/* 引用論文コンテンツ */}
+            <div className="space-y-4">
+              {showCitationSearch && (
+                <div className="mb-4 p-3 bg-[var(--color-background)] rounded border border-[var(--color-border)]">
+                  {/* 検索バー */}
+                  <div className="mb-3">
+                    <div className="flex gap-2 mb-2">
+                      <input
+                        type="text"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        onKeyPress={(e) =>
+                          e.key === "Enter" && handleSearch()
+                        }
+                        placeholder="論文を検索（タイトル、著者、要約）..."
+                        className="flex-1 px-3 py-2 border border-[var(--color-border)] rounded bg-[var(--color-surface)] text-[var(--color-text)] placeholder:text-[var(--color-text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                        disabled={searching}
+                      />
+                      <button
+                        onClick={handleSearch}
+                        disabled={searching}
+                        className="bg-[var(--color-primary)] text-[var(--color-surface)] px-4 py-2 rounded hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                      >
                         {searching && (
-                          <div className="mt-2 text-sm text-blue-600 flex items-center gap-2">
-                            <svg
-                              className="animate-spin h-4 w-4"
-                              xmlns="http://www.w3.org/2000/svg"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                            >
-                              <circle
-                                className="opacity-25"
-                                cx="12"
-                                cy="12"
-                                r="10"
-                                stroke="currentColor"
-                                strokeWidth="4"
-                              ></circle>
-                              <path
-                                className="opacity-75"
-                                fill="currentColor"
-                                d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                              ></path>
-                            </svg>
-                            <span>検索中...</span>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* フィルター */}
-                      <div className="space-y-2 mb-3">
-                        {/* 年フィルター */}
-                        <div>
-                          <label className="text-xs text-[var(--color-text-secondary)] mb-1 block">
-                            年:
-                          </label>
-                          <input
-                            type="number"
-                            value={yearFilter}
-                            onChange={(e) => setYearFilter(e.target.value)}
-                            placeholder="例: 2020"
-                            className="w-full px-2 py-1 border border-[var(--color-border)] rounded text-sm bg-[var(--color-surface)] text-[var(--color-text)] placeholder:text-[var(--color-text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                          />
-                        </div>
-
-                        {/* ジャーナルフィルター */}
-                        <div>
-                          <label className="text-xs text-[var(--color-text-secondary)] mb-1 block">
-                            ジャーナル:
-                          </label>
-                          <input
-                            type="text"
-                            value={venueFilter}
-                            onChange={(e) => setVenueFilter(e.target.value)}
-                            placeholder="例: Nature"
-                            className="w-full px-2 py-1 border border-[var(--color-border)] rounded text-sm bg-[var(--color-surface)] text-[var(--color-text)] placeholder:text-[var(--color-text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                          />
-                        </div>
-
-                        {/* 作成日時フィルター */}
-                        <div className="grid grid-cols-2 gap-2">
-                          <div>
-                            <label className="text-xs text-[var(--color-text-secondary)] mb-1 block">
-                              作成日（開始）:
-                            </label>
-                            <input
-                              type="date"
-                              value={dateFrom}
-                              onChange={(e) => setDateFrom(e.target.value)}
-                              className="w-full px-2 py-1 border border-[var(--color-border)] rounded text-sm bg-[var(--color-surface)] text-[var(--color-text)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                            />
-                          </div>
-                          <div>
-                            <label className="text-xs text-[var(--color-text-secondary)] mb-1 block">
-                              作成日（終了）:
-                            </label>
-                            <input
-                              type="date"
-                              value={dateTo}
-                              onChange={(e) => setDateTo(e.target.value)}
-                              className="w-full px-2 py-1 border border-[var(--color-border)] rounded text-sm bg-[var(--color-surface)] text-[var(--color-text)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
-                            />
-                          </div>
-                        </div>
-
-                        {/* タグフィルター */}
-                        {availableTags.length > 0 && (
-                          <div>
-                            <label className="text-xs text-[var(--color-text-secondary)] mb-1 block">
-                              タグ:
-                            </label>
-                            <div className="flex flex-wrap gap-1">
-                              {availableTags.map((tag) => (
-                                <button
-                                  key={tag}
-                                  onClick={() => toggleTag(tag)}
-                                  className={`px-2 py-1 rounded text-xs ${
-                                    selectedTags.includes(tag)
-                                      ? "bg-[var(--color-primary)] text-[var(--color-surface)]"
-                                      : "bg-[var(--color-background)] text-[var(--color-text)] border border-[var(--color-border)]"
-                                  }`}
-                                >
-                                  {tag}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* 検索結果 */}
-                      {searching && searchResults.length === 0 && (
-                        <div className="mt-2 p-4 border border-[var(--color-border)] rounded bg-[var(--color-background)] flex items-center justify-center gap-2">
                           <svg
-                            className="animate-spin h-5 w-5 text-[var(--color-primary)]"
+                            className="animate-spin h-4 w-4 text-white"
                             xmlns="http://www.w3.org/2000/svg"
                             fill="none"
                             viewBox="0 0 24 24"
@@ -2520,384 +2334,601 @@ export default function ParagraphDetailPage() {
                               d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                             ></path>
                           </svg>
-                          <span className="text-sm text-[var(--color-text-secondary)]">
-                            検索中...
-                          </span>
+                        )}
+                        {searching ? "検索中..." : "検索"}
+                      </button>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          checked={useWebSearch}
+                          onChange={(e) =>
+                            setUseWebSearch(e.target.checked)
+                          }
+                          className="w-4 h-4"
+                          disabled={searching}
+                        />
+                        <span>web（セマンティック検索）</span>
+                      </label>
+                      {useWebSearch && (
+                        <div className="space-y-2 pl-6">
+                          <label className="flex items-center gap-2 text-xs">
+                            <input
+                              type="checkbox"
+                              checked={useAdvancedSearch}
+                              onChange={(e) =>
+                                setUseAdvancedSearch(e.target.checked)
+                              }
+                              className="w-3 h-3"
+                              disabled={searching}
+                            />
+                            <span className="font-medium">
+                              高度な検索モード
+                            </span>
+                            <span className="text-[var(--color-text-secondary)] text-xs">
+                              （多層検索・AIランキング）
+                            </span>
+                          </label>
+                          <div>
+                            <label className="text-xs text-[var(--color-text-secondary)] mb-1 block">
+                              最小被引用数:
+                            </label>
+                            <input
+                              type="number"
+                              value={minCitations}
+                              onChange={(e) =>
+                                setMinCitations(e.target.value)
+                              }
+                              placeholder="例: 10"
+                              className="w-full px-2 py-1 border border-[var(--color-border)] rounded text-sm bg-[var(--color-surface)] text-[var(--color-text)] placeholder:text-[var(--color-text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                              disabled={searching}
+                              min="0"
+                            />
+                          </div>
+                          <label className="flex items-center gap-2 text-xs">
+                            <input
+                              type="checkbox"
+                              checked={sortByCitations}
+                              onChange={(e) =>
+                                setSortByCitations(e.target.checked)
+                              }
+                              className="w-3 h-3"
+                              disabled={searching}
+                            />
+                            <span>被引用数が多い順にソート</span>
+                          </label>
                         </div>
                       )}
-                      {!searching && useWebSearch && searchDetails && (
-                        <div className="mt-2 mb-2">
-                          <button
-                            onClick={() =>
-                              setShowSearchDetails(!showSearchDetails)
-                            }
-                            className="text-xs text-[var(--color-primary)] hover:opacity-80 underline"
-                          >
-                            {showSearchDetails
-                              ? "検索詳細を隠す"
-                              : "検索詳細を表示"}
-                          </button>
-                          {showSearchDetails && (
-                            <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded text-xs text-[var(--color-text)]">
-                              <div className="font-semibold mb-2">
-                                検索詳細情報
+                    </div>
+                    {searching && (
+                      <div className="mt-2 text-sm text-blue-600 flex items-center gap-2">
+                        <svg
+                          className="animate-spin h-4 w-4"
+                          xmlns="http://www.w3.org/2000/svg"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                        >
+                          <circle
+                            className="opacity-25"
+                            cx="12"
+                            cy="12"
+                            r="10"
+                            stroke="currentColor"
+                            strokeWidth="4"
+                          ></circle>
+                          <path
+                            className="opacity-75"
+                            fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                          ></path>
+                        </svg>
+                        <span>検索中...</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* フィルター */}
+                  <div className="space-y-2 mb-3">
+                    {/* 年フィルター */}
+                    <div>
+                      <label className="text-xs text-[var(--color-text-secondary)] mb-1 block">
+                        年:
+                      </label>
+                      <input
+                        type="number"
+                        value={yearFilter}
+                        onChange={(e) => setYearFilter(e.target.value)}
+                        placeholder="例: 2020"
+                        className="w-full px-2 py-1 border border-[var(--color-border)] rounded text-sm bg-[var(--color-surface)] text-[var(--color-text)] placeholder:text-[var(--color-text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                      />
+                    </div>
+
+                    {/* ジャーナルフィルター */}
+                    <div>
+                      <label className="text-xs text-[var(--color-text-secondary)] mb-1 block">
+                        ジャーナル:
+                      </label>
+                      <input
+                        type="text"
+                        value={venueFilter}
+                        onChange={(e) => setVenueFilter(e.target.value)}
+                        placeholder="例: Nature"
+                        className="w-full px-2 py-1 border border-[var(--color-border)] rounded text-sm bg-[var(--color-surface)] text-[var(--color-text)] placeholder:text-[var(--color-text-secondary)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                      />
+                    </div>
+
+                    {/* 作成日時フィルター */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-xs text-[var(--color-text-secondary)] mb-1 block">
+                          作成日（開始）:
+                        </label>
+                        <input
+                          type="date"
+                          value={dateFrom}
+                          onChange={(e) => setDateFrom(e.target.value)}
+                          className="w-full px-2 py-1 border border-[var(--color-border)] rounded text-sm bg-[var(--color-surface)] text-[var(--color-text)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs text-[var(--color-text-secondary)] mb-1 block">
+                          作成日（終了）:
+                        </label>
+                        <input
+                          type="date"
+                          value={dateTo}
+                          onChange={(e) => setDateTo(e.target.value)}
+                          className="w-full px-2 py-1 border border-[var(--color-border)] rounded text-sm bg-[var(--color-surface)] text-[var(--color-text)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                        />
+                      </div>
+                    </div>
+
+                    {/* タグフィルター */}
+                    {availableTags.length > 0 && (
+                      <div>
+                        <label className="text-xs text-[var(--color-text-secondary)] mb-1 block">
+                          タグ:
+                        </label>
+                        <div className="flex flex-wrap gap-1">
+                          {availableTags.map((tag) => (
+                            <button
+                              key={tag}
+                              onClick={() => toggleTag(tag)}
+                              className={`px-2 py-1 rounded text-xs ${selectedTags.includes(tag)
+                                  ? "bg-[var(--color-primary)] text-[var(--color-surface)]"
+                                  : "bg-[var(--color-background)] text-[var(--color-text)] border border-[var(--color-border)]"
+                                }`}
+                            >
+                              {tag}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 検索結果 */}
+                  {searching && searchResults.length === 0 && (
+                    <div className="mt-2 p-4 border border-[var(--color-border)] rounded bg-[var(--color-background)] flex items-center justify-center gap-2">
+                      <svg
+                        className="animate-spin h-5 w-5 text-[var(--color-primary)]"
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                      >
+                        <circle
+                          className="opacity-25"
+                          cx="12"
+                          cy="12"
+                          r="10"
+                          stroke="currentColor"
+                          strokeWidth="4"
+                        ></circle>
+                        <path
+                          className="opacity-75"
+                          fill="currentColor"
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                      </svg>
+                      <span className="text-sm text-[var(--color-text-secondary)]">
+                        検索中...
+                      </span>
+                    </div>
+                  )}
+                  {!searching && useWebSearch && searchDetails && (
+                    <div className="mt-2 mb-2">
+                      <button
+                        onClick={() =>
+                          setShowSearchDetails(!showSearchDetails)
+                        }
+                        className="text-xs text-[var(--color-primary)] hover:opacity-80 underline"
+                      >
+                        {showSearchDetails
+                          ? "検索詳細を隠す"
+                          : "検索詳細を表示"}
+                      </button>
+                      {showSearchDetails && (
+                        <div className="mt-2 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded text-xs text-[var(--color-text)]">
+                          <div className="font-semibold mb-2">
+                            検索詳細情報
+                          </div>
+                          <div className="space-y-1 mb-2">
+                            <div>
+                              <span className="font-semibold">
+                                使用したトピック:
+                              </span>{" "}
+                              {searchDetails.topic}
+                            </div>
+                            <div>
+                              <span className="font-semibold">
+                                パラグラフタイトル:
+                              </span>{" "}
+                              {searchDetails.paragraphTitle || "なし"}
+                            </div>
+                            {searchDetails.paragraphDescription && (
+                              <div>
+                                <span className="font-semibold">
+                                  トピックセンテンス:
+                                </span>{" "}
+                                {searchDetails.paragraphDescription}
                               </div>
-                              <div className="space-y-1 mb-2">
-                                <div>
-                                  <span className="font-semibold">
-                                    使用したトピック:
-                                  </span>{" "}
-                                  {searchDetails.topic}
-                                </div>
-                                <div>
-                                  <span className="font-semibold">
-                                    パラグラフタイトル:
-                                  </span>{" "}
-                                  {searchDetails.paragraphTitle || "なし"}
-                                </div>
-                                {searchDetails.paragraphDescription && (
-                                  <div>
-                                    <span className="font-semibold">
-                                      トピックセンテンス:
-                                    </span>{" "}
-                                    {searchDetails.paragraphDescription}
-                                  </div>
-                                )}
-                                {searchDetails.paragraphContent && (
-                                  <div>
-                                    <span className="font-semibold">
-                                      パラグラフ内容（一部）:
-                                    </span>{" "}
-                                    {searchDetails.paragraphContent}...
-                                  </div>
-                                )}
+                            )}
+                            {searchDetails.paragraphContent && (
+                              <div>
+                                <span className="font-semibold">
+                                  パラグラフ内容（一部）:
+                                </span>{" "}
+                                {searchDetails.paragraphContent}...
                               </div>
-                              {searchDetails.searchPlan && (
-                                <div className="mt-2 pt-2 border-t border-blue-300">
-                                  <div className="font-semibold mb-1">
-                                    検索プラン:
-                                  </div>
-                                  <div className="space-y-1">
-                                    {searchDetails.searchPlan.coreKeywords &&
-                                      searchDetails.searchPlan.coreKeywords
-                                        .length > 0 && (
-                                        <div>
-                                          <span className="font-semibold">
-                                            コアキーワード:
-                                          </span>{" "}
-                                          {searchDetails.searchPlan.coreKeywords.join(
-                                            ", "
-                                          )}
-                                        </div>
+                            )}
+                          </div>
+                          {searchDetails.searchPlan && (
+                            <div className="mt-2 pt-2 border-t border-blue-300">
+                              <div className="font-semibold mb-1">
+                                検索プラン:
+                              </div>
+                              <div className="space-y-1">
+                                {searchDetails.searchPlan.coreKeywords &&
+                                  searchDetails.searchPlan.coreKeywords
+                                    .length > 0 && (
+                                    <div>
+                                      <span className="font-semibold">
+                                        コアキーワード:
+                                      </span>{" "}
+                                      {searchDetails.searchPlan.coreKeywords.join(
+                                        ", "
                                       )}
-                                    {searchDetails.searchPlan
-                                      .recommendedQueries &&
-                                      searchDetails.searchPlan
-                                        .recommendedQueries.length > 0 && (
-                                        <div>
-                                          <span className="font-semibold">
-                                            推奨クエリ:
-                                          </span>
-                                          <ul className="list-disc list-inside ml-2">
-                                            {searchDetails.searchPlan.recommendedQueries.map(
-                                              (q: string, i: number) => (
-                                                <li key={i}>{q}</li>
-                                              )
-                                            )}
-                                          </ul>
-                                        </div>
-                                      )}
-                                    {searchDetails.searchPlan.reasoning && (
-                                      <div>
-                                        <span className="font-semibold">
-                                          検索戦略の理由:
-                                        </span>{" "}
-                                        {searchDetails.searchPlan.reasoning}
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              )}
-                              <div className="mt-2 pt-2 border-t border-blue-300">
-                                <div>
-                                  <span className="font-semibold">
-                                    検索方法:
-                                  </span>{" "}
-                                  {searchDetails.searchMethod || "不明"}
-                                </div>
-                                <div>
-                                  <span className="font-semibold">
-                                    プロバイダー:
-                                  </span>{" "}
-                                  {searchDetails.provider || "不明"}
-                                </div>
-                                <div>
-                                  <span className="font-semibold">
-                                    見つかった論文数:
-                                  </span>{" "}
-                                  {searchDetails.totalFound || 0}件
-                                </div>
-                                {minCitations && (
+                                    </div>
+                                  )}
+                                {searchDetails.searchPlan
+                                  .recommendedQueries &&
+                                  searchDetails.searchPlan
+                                    .recommendedQueries.length > 0 && (
+                                    <div>
+                                      <span className="font-semibold">
+                                        推奨クエリ:
+                                      </span>
+                                      <ul className="list-disc list-inside ml-2">
+                                        {searchDetails.searchPlan.recommendedQueries.map(
+                                          (q: string, i: number) => (
+                                            <li key={i}>{q}</li>
+                                          )
+                                        )}
+                                      </ul>
+                                    </div>
+                                  )}
+                                {searchDetails.searchPlan.reasoning && (
                                   <div>
                                     <span className="font-semibold">
-                                      最小被引用数フィルター:
+                                      検索戦略の理由:
                                     </span>{" "}
-                                    {minCitations}以上
-                                  </div>
-                                )}
-                                {sortByCitations && (
-                                  <div>
-                                    <span className="font-semibold">
-                                      ソート:
-                                    </span>{" "}
-                                    被引用数が多い順
+                                    {searchDetails.searchPlan.reasoning}
                                   </div>
                                 )}
                               </div>
                             </div>
                           )}
-                        </div>
-                      )}
-                      {!searching && searchResults.length > 0 && (
-                        <div className="mt-2 max-h-60 overflow-y-auto border border-[var(--color-border)] rounded p-2 bg-[var(--color-surface)]">
-                          <div className="flex items-center justify-between mb-2">
-                            <div className="text-xs text-[var(--color-text-secondary)]">
-                              {searchResults.length}件の論文が見つかりました
+                          <div className="mt-2 pt-2 border-t border-blue-300">
+                            <div>
+                              <span className="font-semibold">
+                                検索方法:
+                              </span>{" "}
+                              {searchDetails.searchMethod || "不明"}
                             </div>
-                            <div className="flex items-center gap-2">
-                              <button
-                                onClick={handleSelectAllCandidates}
-                                className="text-xs text-[var(--color-primary)] hover:underline"
-                              >
-                                {selectedCandidates.size ===
-                                searchResults.length
-                                  ? "すべて解除"
-                                  : "すべて選択"}
-                              </button>
-                              {selectedCandidates.size > 0 && (
-                                <button
-                                  onClick={handleAddMultipleCitations}
-                                  className="text-xs bg-[var(--color-primary)] text-[var(--color-surface)] px-2 py-1 rounded hover:opacity-90"
-                                >
-                                  選択した{selectedCandidates.size}
-                                  件を引用に追加
-                                </button>
-                              )}
+                            <div>
+                              <span className="font-semibold">
+                                プロバイダー:
+                              </span>{" "}
+                              {searchDetails.provider || "不明"}
                             </div>
-                          </div>
-                          {searchResults.map((paper, index) => {
-                            const paperId =
-                              paper.id || `web-${index}-${Date.now()}`;
-                            const isSaved = savedPaperIds.has(
-                              paper.id || paperId
-                            );
-                            const isSelected = selectedCandidates.has(paperId);
-                            return (
-                              <div
-                                key={`${paper.id || "web"}-${index}`}
-                                className={`relative p-2 border border-[var(--color-border)] rounded mb-2 hover:bg-[var(--color-background)] ${
-                                  isSaved
-                                    ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800"
-                                    : "bg-transparent"
-                                } ${
-                                  isSelected
-                                    ? "ring-2 ring-[var(--color-primary)]"
-                                    : ""
-                                }`}
-                              >
-                                {/* チェックボックス */}
-                                <div className="absolute top-2 left-2 z-10">
-                                  <button
-                                    onClick={() =>
-                                      handleToggleCandidateSelection(paperId)
-                                    }
-                                    className="flex items-center justify-center w-5 h-5 rounded border border-[var(--color-border)] hover:bg-[var(--color-background)] transition-colors"
-                                    title={isSelected ? "選択解除" : "選択"}
-                                  >
-                                    {isSelected ? (
-                                      <CheckSquare className="h-4 w-4 text-[var(--color-primary)]" />
-                                    ) : (
-                                      <Square className="h-4 w-4 text-[var(--color-text-secondary)]" />
-                                    )}
-                                  </button>
-                                </div>
-                                {/* 保存済みラベルとソースラベル */}
-                                <div className="absolute top-2 right-2 z-10 flex items-center gap-2">
-                                  {(paper as any).source && (
-                                    <span
-                                      className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold text-white shadow-sm ${
-                                        (paper as any).source === "semantic_scholar"
-                                          ? "bg-blue-600"
-                                          : (paper as any).source === "pubmed"
-                                          ? "bg-green-600"
-                                          : (paper as any).source === "google_scholar"
-                                          ? "bg-orange-600"
-                                          : "bg-gray-600"
-                                      }`}
-                                    >
-                                      {(paper as any).source === "semantic_scholar"
-                                        ? "Semantic Scholar"
-                                        : (paper as any).source === "pubmed"
-                                        ? "PubMed"
-                                        : (paper as any).source === "google_scholar"
-                                        ? "Google Scholar"
-                                        : (paper as any).source}
-                                    </span>
-                                  )}
-                                  {isSaved && (
-                                    <span className="inline-flex items-center gap-1 rounded-md bg-green-600 px-2 py-0.5 text-[10px] font-semibold text-white shadow-sm">
-                                      <BookOpen className="h-2.5 w-2.5" />
-                                      保存済み
-                                    </span>
-                                  )}
-                                </div>
-                                <div className="font-semibold text-sm text-[var(--color-text)] pr-16 pl-7">
-                                  {paper.title}
-                                </div>
-                                <div className="text-xs text-[var(--color-text-secondary)] pl-7">
-                                  {paper.authors} ({paper.year})
-                                </div>
-                                {paper.venue && (
-                                  <div className="text-xs text-[var(--color-text-secondary)] pl-7">
-                                    {paper.venue}
-                                  </div>
-                                )}
-                                {(paper as any).citationCount !== undefined && (
-                                  <div className="text-xs text-[var(--color-primary)] font-semibold mt-1 pl-7">
-                                    被引用数: {(paper as any).citationCount}
-                                  </div>
-                                )}
-                                {(paper as any).tags &&
-                                  (paper as any).tags.length > 0 && (
-                                    <div className="flex flex-wrap gap-1 mt-1 pl-7">
-                                      {(paper as any).tags.map(
-                                        (tag: string) => (
-                                          <span
-                                            key={tag}
-                                            className="px-1 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs rounded"
-                                          >
-                                            {tag}
-                                          </span>
-                                        )
-                                      )}
-                                    </div>
-                                  )}
-                                <div className="flex gap-2 mt-1 pl-7">
-                                  <button
-                                    onClick={() => handleAddCitation(paper)}
-                                    className="text-[var(--color-primary)] text-xs hover:underline"
-                                  >
-                                    引用に追加
-                                  </button>
-                                  {!isSaved && (
-                                    <button
-                                      onClick={() => handleSaveToLibrary(paper)}
-                                      className="text-green-600 dark:text-green-400 text-xs hover:underline"
-                                    >
-                                      Libraryに保存
-                                    </button>
-                                  )}
-                                </div>
+                            <div>
+                              <span className="font-semibold">
+                                見つかった論文数:
+                              </span>{" "}
+                              {searchDetails.totalFound || 0}件
+                            </div>
+                            {minCitations && (
+                              <div>
+                                <span className="font-semibold">
+                                  最小被引用数フィルター:
+                                </span>{" "}
+                                {minCitations}以上
                               </div>
-                            );
-                          })}
+                            )}
+                            {sortByCitations && (
+                              <div>
+                                <span className="font-semibold">
+                                  ソート:
+                                </span>{" "}
+                                被引用数が多い順
+                              </div>
+                            )}
+                          </div>
                         </div>
                       )}
                     </div>
                   )}
-
-                  {!citations || citations.length === 0 ? (
-                    <div className="text-sm text-[var(--color-text-secondary)] text-center py-4">
-                      引用論文がありません
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      {citations.map((citation) => {
-                        // 安全チェック
-                        if (!citation || !citation.paper || !citation.id) {
-                          return null;
-                        }
-                        
-                        // My Libraryに保存されているかチェック
-                        const isSaved = savedPaperIds.has(citation.paper.id);
-                        const libraryId = citation.paper.id; // user_library.id（UUID）
-
+                  {!searching && searchResults.length > 0 && (
+                    <div className="mt-2 max-h-60 overflow-y-auto border border-[var(--color-border)] rounded p-2 bg-[var(--color-surface)]">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="text-xs text-[var(--color-text-secondary)]">
+                          {searchResults.length}件の論文が見つかりました
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={handleSelectAllCandidates}
+                            className="text-xs text-[var(--color-primary)] hover:underline"
+                          >
+                            {selectedCandidates.size ===
+                              searchResults.length
+                              ? "すべて解除"
+                              : "すべて選択"}
+                          </button>
+                          {selectedCandidates.size > 0 && (
+                            <button
+                              onClick={handleAddMultipleCitations}
+                              className="text-xs bg-[var(--color-primary)] text-[var(--color-surface)] px-2 py-1 rounded hover:opacity-90"
+                            >
+                              選択した{selectedCandidates.size}
+                              件を引用に追加
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      {searchResults.map((paper, index) => {
+                        const paperId =
+                          paper.id || `web-${index}-${Date.now()}`;
+                        const isSaved = savedPaperIds.has(
+                          paper.id || paperId
+                        );
+                        const isSelected = selectedCandidates.has(paperId);
                         return (
                           <div
-                            key={citation.id}
-                            className={`relative p-3 border rounded hover:bg-[var(--color-background)] ${
-                              selectedCitations.has(citation.id)
-                                ? "bg-[var(--color-primary)]/10 border-[var(--color-primary)]"
-                                : "border-[var(--color-border)] bg-transparent"
-                            }`}
+                            key={`${paper.id || "web"}-${index}`}
+                            className={`relative p-2 border border-[var(--color-border)] rounded mb-2 hover:bg-[var(--color-background)] ${isSaved
+                                ? "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800"
+                                : "bg-transparent"
+                              } ${isSelected
+                                ? "ring-2 ring-[var(--color-primary)]"
+                                : ""
+                              }`}
                           >
-                            <div className="flex items-start gap-2">
-                              {/* チェックボックス */}
+                            {/* チェックボックス */}
+                            <div className="absolute top-2 left-2 z-10">
                               <button
-                                onClick={() => handleToggleCitationSelection(citation.id)}
-                                className="mt-1 flex-shrink-0"
-                                title="選択"
+                                onClick={() =>
+                                  handleToggleCandidateSelection(paperId)
+                                }
+                                className="flex items-center justify-center w-5 h-5 rounded border border-[var(--color-border)] hover:bg-[var(--color-background)] transition-colors"
+                                title={isSelected ? "選択解除" : "選択"}
                               >
-                                {selectedCitations.has(citation.id) ? (
-                                  <CheckSquare className="h-5 w-5 text-[var(--color-primary)]" />
+                                {isSelected ? (
+                                  <CheckSquare className="h-4 w-4 text-[var(--color-primary)]" />
                                 ) : (
-                                  <Square className="h-5 w-5 text-[var(--color-text-secondary)]" />
+                                  <Square className="h-4 w-4 text-[var(--color-text-secondary)]" />
                                 )}
                               </button>
-                              
-                              <div className="flex-1">
-                                <div className="font-semibold text-sm text-[var(--color-text)]">
-                                  {citation.paper.title}
-                                </div>
-                                <div className="text-xs text-[var(--color-text-secondary)]">
-                                  {citation.paper.authors} (
-                                  {citation.paper.year})
-                                </div>
-                                {citation.paper.venue && (
-                                  <div className="text-xs text-[var(--color-text-secondary)]">
-                                    {citation.paper.venue}
-                                  </div>
-                                )}
-                                {/* リンクと保存済みラベル */}
-                                <div className="flex items-center gap-2 mt-2">
-                                  {citation.paper.url && (
-                                    <a
-                                      href={citation.paper.url}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-xs text-[var(--color-primary)] hover:underline"
-                                    >
-                                      Web
-                                    </a>
-                                  )}
-                                  {libraryId && (
-                                    <a
-                                      href={`/library?paperId=${libraryId}`}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-xs text-green-600 dark:text-green-400 hover:underline"
-                                    >
-                                      Library
-                                    </a>
-                                  )}
-                                  {/* 保存済みラベルをリンクの右に表示 */}
-                                  {isSaved && (
-                                    <span className="inline-flex items-center gap-1 rounded-md bg-green-600 px-2 py-0.5 text-[10px] font-semibold text-white shadow-sm">
-                                      <BookOpen className="h-2.5 w-2.5" />
-                                      保存済み
-                                    </span>
-                                  )}
-                                </div>
+                            </div>
+                            {/* 保存済みラベルとソースラベル */}
+                            <div className="absolute top-2 right-2 z-10 flex items-center gap-2">
+                              {(paper as any).source && (
+                                <span
+                                  className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold text-white shadow-sm ${(paper as any).source === "semantic_scholar"
+                                      ? "bg-blue-600"
+                                      : (paper as any).source === "pubmed"
+                                        ? "bg-green-600"
+                                        : (paper as any).source === "google_scholar"
+                                          ? "bg-orange-600"
+                                          : "bg-gray-600"
+                                    }`}
+                                >
+                                  {(paper as any).source === "semantic_scholar"
+                                    ? "Semantic Scholar"
+                                    : (paper as any).source === "pubmed"
+                                      ? "PubMed"
+                                      : (paper as any).source === "google_scholar"
+                                        ? "Google Scholar"
+                                        : (paper as any).source}
+                                </span>
+                              )}
+                              {isSaved && (
+                                <span className="inline-flex items-center gap-1 rounded-md bg-green-600 px-2 py-0.5 text-[10px] font-semibold text-white shadow-sm">
+                                  <BookOpen className="h-2.5 w-2.5" />
+                                  保存済み
+                                </span>
+                              )}
+                            </div>
+                            <div className="font-semibold text-sm text-[var(--color-text)] pr-16 pl-7">
+                              {paper.title}
+                            </div>
+                            <div className="text-xs text-[var(--color-text-secondary)] pl-7">
+                              {paper.authors} ({paper.year})
+                            </div>
+                            {paper.venue && (
+                              <div className="text-xs text-[var(--color-text-secondary)] pl-7">
+                                {paper.venue}
                               </div>
-                              {/* 3点メニュー */}
-                              <div className="relative group ml-2">
+                            )}
+                            {(paper as any).citationCount !== undefined && (
+                              <div className="text-xs text-[var(--color-primary)] font-semibold mt-1 pl-7">
+                                被引用数: {(paper as any).citationCount}
+                              </div>
+                            )}
+                            {(paper as any).tags &&
+                              (paper as any).tags.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mt-1 pl-7">
+                                  {(paper as any).tags.map(
+                                    (tag: string) => (
+                                      <span
+                                        key={tag}
+                                        className="px-1 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs rounded"
+                                      >
+                                        {tag}
+                                      </span>
+                                    )
+                                  )}
+                                </div>
+                              )}
+                            <div className="flex gap-2 mt-1 pl-7">
+                              <button
+                                onClick={() => handleAddCitation(paper)}
+                                className="text-[var(--color-primary)] text-xs hover:underline"
+                              >
+                                引用に追加
+                              </button>
+                              {!isSaved && (
                                 <button
-                                  className="p-1 text-[var(--color-text-secondary)] hover:text-[var(--color-text)] hover:bg-[var(--color-background)] rounded transition-colors"
-                                  title="メニュー"
+                                  onClick={() => handleSaveToLibrary(paper)}
+                                  className="text-green-600 dark:text-green-400 text-xs hover:underline"
+                                >
+                                  Libraryに保存
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {!citations || citations.length === 0 ? (
+                <div className="text-sm text-[var(--color-text-secondary)] text-center py-4">
+                  引用論文がありません
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {citations.map((citation) => {
+                    // 安全チェック
+                    if (!citation || !citation.paper || !citation.id) {
+                      return null;
+                    }
+
+                    // My Libraryに保存されているかチェック
+                    const isSaved = savedPaperIds.has(citation.paper.id);
+                    const libraryId = citation.paper.id; // user_library.id（UUID）
+
+                    return (
+                      <div
+                        key={citation.id}
+                        className={`relative p-3 border rounded hover:bg-[var(--color-background)] ${selectedCitations.has(citation.id)
+                            ? "bg-[var(--color-primary)]/10 border-[var(--color-primary)]"
+                            : "border-[var(--color-border)] bg-transparent"
+                          }`}
+                      >
+                        <div className="flex items-start gap-2">
+                          {/* チェックボックス */}
+                          <button
+                            onClick={() => handleToggleCitationSelection(citation.id)}
+                            className="mt-1 flex-shrink-0"
+                            title="選択"
+                          >
+                            {selectedCitations.has(citation.id) ? (
+                              <CheckSquare className="h-5 w-5 text-[var(--color-primary)]" />
+                            ) : (
+                              <Square className="h-5 w-5 text-[var(--color-text-secondary)]" />
+                            )}
+                          </button>
+
+                          <div className="flex-1">
+                            <div className="font-semibold text-sm text-[var(--color-text)]">
+                              {citation.paper.title}
+                            </div>
+                            <div className="text-xs text-[var(--color-text-secondary)]">
+                              {citation.paper.authors} (
+                              {citation.paper.year})
+                            </div>
+                            {citation.paper.venue && (
+                              <div className="text-xs text-[var(--color-text-secondary)]">
+                                {citation.paper.venue}
+                              </div>
+                            )}
+                            {/* リンクと保存済みラベル */}
+                            <div className="flex items-center gap-2 mt-2">
+                              {citation.paper.url && (
+                                <a
+                                  href={citation.paper.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs text-[var(--color-primary)] hover:underline"
+                                >
+                                  Web
+                                </a>
+                              )}
+                              {libraryId && (
+                                <a
+                                  href={`/library?paperId=${libraryId}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-xs text-green-600 dark:text-green-400 hover:underline"
+                                >
+                                  Library
+                                </a>
+                              )}
+                              {/* 保存済みラベルをリンクの右に表示 */}
+                              {isSaved && (
+                                <span className="inline-flex items-center gap-1 rounded-md bg-green-600 px-2 py-0.5 text-[10px] font-semibold text-white shadow-sm">
+                                  <BookOpen className="h-2.5 w-2.5" />
+                                  保存済み
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          {/* 3点メニュー */}
+                          <div className="relative group ml-2">
+                            <button
+                              className="p-1 text-[var(--color-text-secondary)] hover:text-[var(--color-text)] hover:bg-[var(--color-background)] rounded transition-colors"
+                              title="メニュー"
+                            >
+                              <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                className="h-5 w-5"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                                strokeWidth={2}
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"
+                                />
+                              </svg>
+                            </button>
+                            {/* ホバーメニュー */}
+                            <div className="absolute right-0 top-full mt-1 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-20">
+                              <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg shadow-lg py-1 min-w-[160px]">
+                                <button
+                                  onClick={() =>
+                                    handleRemoveCitation(citation.id)
+                                  }
+                                  className="w-full text-left px-4 py-2 text-sm text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2"
                                 >
                                   <svg
                                     xmlns="http://www.w3.org/2000/svg"
-                                    className="h-5 w-5"
+                                    className="h-4 w-4"
                                     fill="none"
                                     viewBox="0 0 24 24"
                                     stroke="currentColor"
@@ -2906,49 +2937,25 @@ export default function ParagraphDetailPage() {
                                     <path
                                       strokeLinecap="round"
                                       strokeLinejoin="round"
-                                      d="M12 5v.01M12 12v.01M12 19v.01M12 6a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2zm0 7a1 1 0 110-2 1 1 0 010 2z"
+                                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
                                     />
                                   </svg>
+                                  引用から削除する
                                 </button>
-                                {/* ホバーメニュー */}
-                                <div className="absolute right-0 top-full mt-1 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-20">
-                                  <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg shadow-lg py-1 min-w-[160px]">
-                                    <button
-                                      onClick={() =>
-                                        handleRemoveCitation(citation.id)
-                                      }
-                                      className="w-full text-left px-4 py-2 text-sm text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 flex items-center gap-2"
-                                    >
-                                      <svg
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        className="h-4 w-4"
-                                        fill="none"
-                                        viewBox="0 0 24 24"
-                                        stroke="currentColor"
-                                        strokeWidth={2}
-                                      >
-                                        <path
-                                          strokeLinecap="round"
-                                          strokeLinejoin="round"
-                                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                                        />
-                                      </svg>
-                                      引用から削除する
-                                    </button>
-                                  </div>
-                                </div>
                               </div>
                             </div>
                           </div>
-                        );
-                      })}
-                    </div>
-                  )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
+              )}
+            </div>
 
-              </div>
           </div>
         </div>
       </div>
+    </div>
   );
 }

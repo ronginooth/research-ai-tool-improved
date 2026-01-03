@@ -12,6 +12,7 @@ export async function POST(request: NextRequest) {
     const {
       query,
       limit = 20,
+      // FORCE REBUILD
       sources = ["semantic_scholar", "pubmed"],
       useAdvancedSearch = false, // 高度な検索モード（オプション）
       reviewOnly = false, // Review論文のみ検索（オプション）
@@ -93,61 +94,11 @@ export async function POST(request: NextRequest) {
           plan,
         };
 
-        // 多層検索を実行
+        // 多層検索を実行（recommendedQueries優先、フォールバック処理も含む）
         let papers = await advancedSearchEngine.multilayerSearch(
           query.trim(),
           searchOptions
         );
-
-        // フォールバック検索1: 推奨クエリを使用
-        const buildWithCore = (query: string, core?: string[]) => {
-          if (!core?.length) return query;
-          const required = core.map((term) => `"${term}"`).join(" ");
-          return `${query} ${required}`.trim();
-        };
-
-        if (papers.length === 0 && plan?.recommendedQueries?.length) {
-          try {
-            const combinedQuery = plan.recommendedQueries
-              .map((q) => `(${q})`)
-              .join(" OR ");
-            const enrichedQuery = buildWithCore(
-              combinedQuery,
-              plan.coreKeywords
-            );
-            papers = await advancedSearchEngine.basicSearch(
-              enrichedQuery,
-              searchOptions
-            );
-          } catch (error) {
-            console.warn("[Search Simple] Fallback search 1 failed:", error);
-          }
-        }
-
-        // フォールバック検索2: 元のクエリで再検索
-        if (papers.length === 0) {
-          try {
-            const relaxedOptions: SearchOptions = {
-              ...searchOptions,
-              filters: searchOptions.filters
-                ? {
-                    ...searchOptions.filters,
-                    minCitations: 0,
-                  }
-                : undefined,
-            };
-            const fallbackQuery = buildWithCore(
-              query.trim(),
-              plan?.coreKeywords
-            );
-            papers = await advancedSearchEngine.basicSearch(
-              fallbackQuery,
-              relaxedOptions
-            );
-          } catch (error) {
-            console.warn("[Search Simple] Fallback search 2 failed:", error);
-          }
-        }
 
         // AIランキングを実行
         let rankedPapers = papers;
@@ -456,6 +407,17 @@ ${originalQuery}
               query: translatedQuery,
             });
           }
+
+          // 不適切な引用符を削除（サニタイズ）
+          const beforeSanitize = translatedQuery;
+          translatedQuery = sanitizeQuotes(translatedQuery);
+          if (beforeSanitize !== translatedQuery) {
+            queryProcessingSteps.push({
+              step: "2",
+              description: "引用符サニタイズ適用",
+              query: translatedQuery,
+            });
+          }
         } else {
           // 翻訳されていない場合はフォールバックを使用
           queryProcessingSteps.push({
@@ -482,7 +444,9 @@ ${originalQuery}
               query: translatedQuery,
             });
           }
+
         }
+
       } catch (error) {
         console.warn(
           "[Search Simple] Translation failed, using fallback:",
@@ -513,7 +477,31 @@ ${originalQuery}
             query: translatedQuery,
           });
         }
+
+        // 不適切な引用符を削除（サニタイズ）
+        const beforeSanitize = translatedQuery;
+        translatedQuery = sanitizeQuotes(translatedQuery);
+        if (beforeSanitize !== translatedQuery) {
+          queryProcessingSteps.push({
+            step: "2",
+            description: "引用符サニタイズ適用",
+            query: translatedQuery,
+          });
+        }
       }
+
+    }
+
+
+    // 最終的なクエリに対してサニタイズを実行（全パス共通）
+    const beforeGlobalSanitize = translatedQuery;
+    translatedQuery = sanitizeQuotes(translatedQuery);
+    if (beforeGlobalSanitize !== translatedQuery) {
+      queryProcessingSteps.push({
+        step: "2",
+        description: "最終サニタイズ適用",
+        query: translatedQuery,
+      });
     }
 
     // ユーザーが選択したソースから検索
@@ -698,17 +686,14 @@ ${originalQuery}
     }
 
     console.log(
-      `[Search Simple] Total papers before deduplication: ${
-        allPapers.length
-      } (Semantic Scholar: ${
-        semanticScholarResults.status === "fulfilled" &&
+      `[Search Simple] Total papers before deduplication: ${allPapers.length
+      } (Semantic Scholar: ${semanticScholarResults.status === "fulfilled" &&
         semanticScholarResults.value
-          ? semanticScholarResults.value.length
-          : 0
-      }, PubMed: ${
-        pubmedResults.status === "fulfilled" && pubmedResults.value
-          ? pubmedResults.value.length
-          : 0
+        ? semanticScholarResults.value.length
+        : 0
+      }, PubMed: ${pubmedResults.status === "fulfilled" && pubmedResults.value
+        ? pubmedResults.value.length
+        : 0
       })`
     );
 
@@ -836,7 +821,7 @@ ${originalQuery}
     // 各ソースの統計情報を取得
     const semanticFetched =
       semanticScholarResults.status === "fulfilled" &&
-      semanticScholarResults.value
+        semanticScholarResults.value
         ? semanticScholarResults.value.length
         : 0;
     const pubmedFetched =
@@ -845,9 +830,9 @@ ${originalQuery}
         : 0;
     const googleFetched =
       enableGoogleScholar &&
-      googleScholarResults &&
-      googleScholarResults.status === "fulfilled" &&
-      googleScholarResults.value
+        googleScholarResults &&
+        googleScholarResults.status === "fulfilled" &&
+        googleScholarResults.value
         ? googleScholarResults.value.length
         : 0;
 
@@ -891,11 +876,11 @@ ${originalQuery}
         searchedSources: searchedSources,
         userIntent: userIntent
           ? {
-              mainConcepts: userIntent.mainConcepts,
-              compoundTerms: userIntent.compoundTerms,
-              searchPurpose: userIntent.searchPurpose,
-              keyPhrases: userIntent.keyPhrases,
-            }
+            mainConcepts: userIntent.mainConcepts,
+            compoundTerms: userIntent.compoundTerms,
+            searchPurpose: userIntent.searchPurpose,
+            keyPhrases: userIntent.keyPhrases,
+          }
           : undefined,
         processingSteps: queryProcessingSteps,
       },
@@ -934,7 +919,10 @@ async function analyzeUserIntent(query: string): Promise<UserIntent> {
 1. 主要な概念を特定（タンパク質名、遺伝子名、プロセス名、細胞小器官など）
 2. 複合語やフレーズを特定（例: "adenylate kinase", "motor protein", "intraflagellar transport"）
 3. 検索の目的を特定（メカニズム、機能、調節、相互作用、疾患との関係など）
+3. 検索の目的を特定（メカニズム、機能、調節、相互作用、疾患との関係など）
 4. 引用符で囲むべき重要なフレーズを特定
+   - **ルール**: 固有名詞、特定のタンパク質・遺伝子名、確立された複合語（"motor protein"など）のみを含める
+   - **除外**: 一般的な説明語（dysfunction, disorder, mechanism, developmentなど）は含めない
 
 【出力形式】
 以下のJSON形式で出力してください：
@@ -952,7 +940,7 @@ async function analyzeUserIntent(query: string): Promise<UserIntent> {
   "mainConcepts": ["ciliopathy", "adenylate kinase", "protein"],
   "compoundTerms": ["adenylate kinase", "ciliary dysfunction"],
   "searchPurpose": "adenylate kinaseタンパク質と繊毛病の関係、特にadenylate kinaseの欠損が繊毛機能に与える影響を探している",
-  "keyPhrases": ["adenylate kinase", "ciliary dysfunction"]
+  "keyPhrases": ["adenylate kinase"]
 }
 
 【クエリ】
@@ -966,18 +954,51 @@ JSON形式:`;
 
     // JSONを抽出（```json や ``` で囲まれている場合がある）
     const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[0]) as UserIntent;
-      return parsed;
-    }
-
     // JSON解析に失敗した場合のフォールバック
-    return {
+    const fallback = {
       mainConcepts: [],
       compoundTerms: [],
       searchPurpose: "研究論文を検索",
       keyPhrases: [],
     };
+
+    if (jsonMatch) {
+      try {
+        const parsed = JSON.parse(jsonMatch[0]) as UserIntent;
+
+        // 強制フィルタリング: 一般的な用語が含まれていたら除外または引用符削除
+        if (parsed.keyPhrases && Array.isArray(parsed.keyPhrases)) {
+          const generalTerms = [
+            "disorder", "disorders",
+            "disease", "diseases",
+            "syndrome", "syndromes",
+            "function", "functions",
+            "mechanism", "mechanisms",
+            "regulation", "regulations",
+            "development", "developments",
+            "effect", "effects",
+            "influence", "influences",
+            "role", "roles"
+          ];
+
+          parsed.keyPhrases = parsed.keyPhrases.filter(phrase => {
+            const lower = phrase.toLowerCase();
+            // 一般用語そのもの、または一般用語で終わるフレーズ（例: "developmental disorders"）を除外
+            // ただし、特定の固有名詞（例: "Down syndrome"）は除外したくない場合はホワイトリストが必要だが、
+            // ここでは安全側に倒して「一般用語で終わるもの」は引用符をつけない（＝keyPhrasesから外す）ことにする
+            const endsWithGeneralTerm = generalTerms.some(term => lower.endsWith(term));
+            return !endsWithGeneralTerm;
+          });
+        }
+
+        return parsed;
+      } catch (e) {
+        console.warn("[Search Simple] JSON parse failed:", e);
+        return fallback;
+      }
+    }
+
+    return fallback;
   } catch (error) {
     console.warn("[Search Simple] Intent analysis failed:", error);
     // エラー時は空の意図を返す
@@ -1093,6 +1114,7 @@ async function translateQueryToEnglishPattern4(
 - 元のキーワードを必ずすべて含める
 - 関連する専門用語を2-3語のみ追加（例: motor protein, function, mechanism）
 - **複合語やタンパク質名は引用符で囲む**（例: "adenylate kinase", "motor protein", "ATP synthase"）
+  - ただし、一般的な語句（example: function, mechanism, disorder, development）は**引用符で囲まない**こと
 - 合計で10-12語程度に収める
 - スペース区切りで出力
 - 余計な説明や記号は不要
@@ -1137,13 +1159,14 @@ ${query}
 【ルール】
 - 重要な専門用語、遺伝子名、種名、プロセス名を優先的に含める
 - **複合語やタンパク質名は引用符で囲む**（例: "nuclear reshaping", "tail formation"）
+  - ただし、一般的な語句（example: function, mechanism, disorder, development, spermiogenesis）は**引用符で囲まない**こと
 - 10-12語程度に収める
 - スペース区切りで出力
 - 余計な説明や記号は不要
 
 【例】
 入力: Expression Dynamics Indicate Potential Roles of KIF17 for Nuclear Reshaping and Tail Formation during Spermiogenesis in Phascolosoma esculenta
-出力: KIF17 kinesin "nuclear reshaping" "tail formation" spermiogenesis Phascolosoma esculenta expression dynamics
+出力: KIF17 kinesin "nuclear reshaping" "tail formation" spermiogenesis "Phascolosoma esculenta" expression dynamics
 
 【入力】
 ${query}
@@ -1195,7 +1218,8 @@ ${intentContext}
 【キーワード生成ルール】
 - 必須概念を必ず含める（例: kinesin, cilia）
 - 関連する専門用語を追加（例: motor protein, ciliary function, intraflagellar transport）
-- **複合語やタンパク質名は引用符で囲む**（例: "adenylate kinase", "motor protein", "intraflagellar transport", "ciliary function"）
+- **複合語やタンパク質名は引用符で囲む**（例: "adenylate kinase", "motor protein", "intraflagellar transport"）
+  - ただし、一般的な語句（example: function, mechanism, disorder, development, regulation）は**引用符で囲まない**こと
 - 研究の文脈に応じた概念を含める（例: regulation, mechanism, transport）
 - **10-12語程度で、スペース区切りで出力**（重要: 15語を超えないこと）
 - 余計な説明や記号は不要
@@ -1306,6 +1330,37 @@ async function translateQueryToEnglish(
   } else {
     return translateQueryToEnglishPattern4(query, userIntent);
   }
+}
+
+// 引用符を整理する関数（不適切な引用符を削除）
+function sanitizeQuotes(query: string): string {
+  if (!query || typeof query !== 'string') return query || "";
+  const generalTerms = [
+    "disorder", "disorders",
+    "disease", "diseases",
+    "syndrome", "syndromes",
+    "function", "functions",
+    "mechanism", "mechanisms",
+    "regulation", "regulations",
+    "development", "developments",
+    "effect", "effects",
+    "influence", "influences",
+    "role", "roles",
+    "activity", "activities",
+    "movement", "movements"
+  ];
+
+  // 引用符で囲まれた部分を抽出してチェック
+  return query.replace(/"([^"]+)"/g, (match, content) => {
+    const lower = content.toLowerCase().trim();
+    // 一般用語で終わる場合は引用符を外す
+    if (generalTerms.some(term => lower.endsWith(term))) {
+      // ただし、ホワイトリスト（固有名詞）は除外する必要があるかもしれないが、
+      // 現状は安全側に倒して外す
+      return content;
+    }
+    return match;
+  });
 }
 
 // フォールバック: 簡単な日本語→英語変換
@@ -1597,12 +1652,12 @@ async function searchPubMed(query: string, limit: number): Promise<Paper[]> {
 
         const authors = paper.authors
           ? paper.authors
-              .map((author: any) => {
-                if (typeof author === "string") return author;
-                return `${author.name || ""}`.trim();
-              })
-              .filter((name: string) => name)
-              .join(", ")
+            .map((author: any) => {
+              if (typeof author === "string") return author;
+              return `${author.name || ""}`.trim();
+            })
+            .filter((name: string) => name)
+            .join(", ")
           : "著者不明";
 
         // pubdateから年、月、日を抽出

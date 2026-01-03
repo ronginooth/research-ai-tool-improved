@@ -470,6 +470,15 @@ export async function callGemini(prompt: string): Promise<string> {
             markKeyQuotaExceeded(keyIndexUsed, errorMessage);
           }
 
+          // リトライ待機時間が短い場合（30秒以下）は待機
+          // 長い場合（30秒超）は次のキーに即座に切り替え
+          if (retrySeconds && retrySeconds <= 30 && response.status === 429) {
+            console.log(
+              `[Gemini callGemini] Waiting ${retrySeconds}s before retry with next key...`
+            );
+            await new Promise((resolve) => setTimeout(resolve, retrySeconds * 1000));
+          }
+
           console.warn(
             `[Gemini callGemini] API key ${keyIndexUsed + 1} (attempt ${
               attempt + 1

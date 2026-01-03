@@ -81,29 +81,34 @@ export async function getSupabaseAdminClient(
 /**
  * デフォルトのSupabaseクライアント（従来の互換性のため）
  */
-export const supabase =
-  defaultSupabaseUrl && defaultSupabaseKey
-    ? createClient(defaultSupabaseUrl, defaultSupabaseKey)
-    : null;
+export const supabase = (() => {
+  try {
+    return defaultSupabaseUrl && defaultSupabaseKey && defaultSupabaseUrl.startsWith('http')
+      ? createClient(defaultSupabaseUrl, defaultSupabaseKey)
+      : null;
+  } catch (e) {
+    console.warn('Failed to initialize Supabase client:', e);
+    return null;
+  }
+})();
 
 /**
  * デフォルトのSupabase管理者クライアント（従来の互換性のため）
  */
-export const supabaseAdmin =
-  defaultSupabaseUrl && defaultSupabaseServiceKey
-    ? createClient(defaultSupabaseUrl, defaultSupabaseServiceKey, {
+
+
+export const supabaseAdmin = (() => {
+  try {
+    return defaultSupabaseUrl && defaultSupabaseServiceKey && defaultSupabaseUrl.startsWith('http')
+      ? createClient(defaultSupabaseUrl, defaultSupabaseServiceKey, {
         auth: {
           autoRefreshToken: false,
           persistSession: false,
         },
       })
-    : null;
-
-
-
-
-
-
-
-
-
+      : null;
+  } catch (e) {
+    console.warn('Failed to initialize Supabase admin client:', e);
+    return null;
+  }
+})();

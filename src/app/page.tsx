@@ -22,6 +22,7 @@ import {
   HelpCircle,
 } from "lucide-react";
 import Link from "next/link";
+import { getVersionString } from "@/lib/version";
 import Header from "@/components/layout/Header";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -142,7 +143,7 @@ function HomeContent() {
   }>>([]);
   const [useAdvancedSearch, setUseAdvancedSearch] = useState<boolean>(false);
   const [reviewOnly, setReviewOnly] = useState<boolean>(false); // Review論文のみ検索
-  
+
   // Gemini API使用状況
   const [geminiUsageStats, setGeminiUsageStats] = useState<{
     totalKeys: number;
@@ -155,11 +156,11 @@ function HomeContent() {
       lastError?: string;
     }>;
   } | null>(null);
-  
+
   // IME（日本語入力）の状態を管理（検索窓用）
   const [isComposing, setIsComposing] = useState(false);
   const [compositionEndTime, setCompositionEndTime] = useState(0);
-  
+
   // IME（日本語入力）の状態を管理（チャット欄用）
   const [isChatComposing, setIsChatComposing] = useState(false);
   const [chatCompositionEndTime, setChatCompositionEndTime] = useState(0);
@@ -180,7 +181,7 @@ function HomeContent() {
     // チャット履歴をリセット
     setChatMessages([]);
     setChatInput("");
-    
+
     setIsConfirmingIntent(true);
     setPendingSearchQuery(query);
     setCurrentSearchStep("AIが検索意図を分析中...");
@@ -267,7 +268,7 @@ function HomeContent() {
 
       // refinedQueryが空の場合は元のクエリを使用
       let finalQuery = refineData.refinedQuery?.trim() || pendingSearchQuery;
-      
+
       // finalQueryが空の場合はエラー
       if (!finalQuery || finalQuery.trim().length === 0) {
         throw new Error("検索クエリが生成できませんでした。元のクエリで検索を実行します。");
@@ -294,7 +295,7 @@ function HomeContent() {
       console.error("Intent refine error:", error);
       const errorMessage = error instanceof Error ? error.message : "返答の処理に失敗しました";
       toast.error(errorMessage);
-      
+
       // エラー時は元のクエリで検索を実行
       setShowIntentConfirmation(false);
       setChatMessages([]);
@@ -317,7 +318,7 @@ function HomeContent() {
     sourcesList: string[] = sources
   ) => {
     if (!query.trim()) return;
-    
+
     // 意図確認が有効な場合のみ意図確認を開始、そうでなければ直接検索
     if (enableIntentConfirmation) {
       await startIntentConfirmation(query);
@@ -368,25 +369,25 @@ function HomeContent() {
       if (selectedSources.includes("google_scholar")) {
         setSearchProgress(prev => ({ ...prev, googleScholar: { status: "searching", fetched: 0 } }));
       }
-      
+
       setCurrentSearchStep("各データベースから論文を検索中...");
-      
+
       // 高度な検索モードの場合は/api/ai-searchを使用
       const endpoint = useAdvancedSearch ? "/api/ai-search" : "/api/search-simple";
       const requestBody = useAdvancedSearch
         ? {
-            topic: query.trim(),
-            maxPapers: resultLimit,
-            sources: selectedSources.length > 0 ? selectedSources : ["semantic_scholar", "pubmed"],
-            provider: "gemini",
-            reviewOnly: reviewOnly,
-          }
+          topic: query.trim(),
+          maxPapers: resultLimit,
+          sources: selectedSources.length > 0 ? selectedSources : ["semantic_scholar", "pubmed"],
+          provider: "gemini",
+          reviewOnly: reviewOnly,
+        }
         : {
-            query: query.trim(),
-            limit: resultLimit,
-            sources: selectedSources.length > 0 ? selectedSources : ["semantic_scholar", "pubmed"],
-            reviewOnly: reviewOnly,
-          };
+          query: query.trim(),
+          limit: resultLimit,
+          sources: selectedSources.length > 0 ? selectedSources : ["semantic_scholar", "pubmed"],
+          reviewOnly: reviewOnly,
+        };
 
       const response = await fetch(endpoint, {
         method: "POST",
@@ -404,7 +405,7 @@ function HomeContent() {
       }
 
       setCurrentSearchStep("検索結果を処理中...");
-      
+
       const data = await response.json();
       if (
         Array.isArray(data.papers) &&
@@ -581,8 +582,8 @@ function HomeContent() {
 
   const toggleSource = (key: string) => {
     setSources((prev) => {
-      const newSources = prev.includes(key) 
-        ? prev.filter((item) => item !== key) 
+      const newSources = prev.includes(key)
+        ? prev.filter((item) => item !== key)
         : [...prev, key];
       // 最低1つは選択されている必要がある
       if (newSources.length === 0) {
@@ -599,18 +600,22 @@ function HomeContent() {
 
       <main className="mx-auto w-full max-w-6xl px-6 py-10">
         <section className="mb-6">
-          <div className="flex items-center justify-center">
+          <div className="flex items-end justify-center gap-3">
             {/* 中央の陰影アイコン */}
             <div className="flex-shrink-0" style={{ filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1))', opacity: 0.15 }}>
               <svg width="80" height="80" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="16" cy="16" r="11" stroke="currentColor" strokeWidth="2" fill="none" className="text-[var(--color-text)]"/>
-                <path d="M12 10C12 10 14 9 16 9C18 9 20 10 20 10" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" fill="none" className="text-[var(--color-text)]"/>
-                <path d="M12 10Q12 13 12 16Q12 19 12 22" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" fill="none" className="text-[var(--color-text)]"/>
-                <path d="M20 10Q20 13 20 16Q20 19 20 22" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" fill="none" className="text-[var(--color-text)]"/>
-                <path d="M12 14Q16 13 20 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" fill="none" className="text-[var(--color-text)]"/>
-                <path d="M12 18Q16 17 20 18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" fill="none" className="text-[var(--color-text)]"/>
+                <circle cx="16" cy="16" r="11" stroke="currentColor" strokeWidth="2" fill="none" className="text-[var(--color-text)]" />
+                <path d="M12 10C12 10 14 9 16 9C18 9 20 10 20 10" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" fill="none" className="text-[var(--color-text)]" />
+                <path d="M12 10Q12 13 12 16Q12 19 12 22" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" fill="none" className="text-[var(--color-text)]" />
+                <path d="M20 10Q20 13 20 16Q20 19 20 22" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" fill="none" className="text-[var(--color-text)]" />
+                <path d="M12 14Q16 13 20 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" fill="none" className="text-[var(--color-text)]" />
+                <path d="M12 18Q16 17 20 18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" fill="none" className="text-[var(--color-text)]" />
               </svg>
             </div>
+            {/* バージョン表示 */}
+            <span className="text-sm text-[var(--color-text-secondary)] font-medium">
+              {getVersionString()}
+            </span>
           </div>
         </section>
 
@@ -707,16 +712,14 @@ function HomeContent() {
                       role="switch"
                       aria-checked={enableIntentConfirmation}
                       onClick={() => setEnableIntentConfirmation(!enableIntentConfirmation)}
-                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2 ${
-                        enableIntentConfirmation
-                          ? "bg-[var(--color-primary)]"
-                          : "bg-[var(--color-border)]"
-                      }`}
+                      className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2 ${enableIntentConfirmation
+                        ? "bg-[var(--color-primary)]"
+                        : "bg-[var(--color-border)]"
+                        }`}
                     >
                       <span
-                        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform duration-200 ease-in-out ${
-                          enableIntentConfirmation ? "translate-x-6" : "translate-x-1"
-                        }`}
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform duration-200 ease-in-out ${enableIntentConfirmation ? "translate-x-6" : "translate-x-1"
+                          }`}
                       />
                     </button>
                   </div>
@@ -798,40 +801,61 @@ function HomeContent() {
                                 <div className="flex-shrink-0 w-5 h-5 rounded-full bg-[var(--color-primary)] text-white flex items-center justify-center text-[10px] font-bold">
                                   4
                                 </div>
-                                <div className="flex-1">
-                                  <p className="text-[var(--color-text)] font-medium">AIランキング</p>
+                                <div className="flex-1 group relative">
+                                  <div className="flex items-center gap-1 cursor-help">
+                                    <p className="text-[var(--color-text)] font-medium">AIランキング</p>
+                                    <HelpCircle className="h-3 w-3 text-[var(--color-text-secondary)]" />
+                                  </div>
                                   <p className="text-[var(--color-text-secondary)] text-[10px]">Gemini APIで関連度順に並び替え</p>
+
+                                  {/* Tooltip */}
+                                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 w-64 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none z-10">
+                                    <div className="bg-[var(--color-surface)] border border-[var(--color-border)] rounded-lg shadow-xl p-3 text-xs leading-relaxed">
+                                      <div className="font-semibold text-[var(--color-text)] mb-2 border-b border-[var(--color-border)] pb-1">
+                                        検索モードの違い
+                                      </div>
+                                      <div className="space-y-2">
+                                        <div>
+                                          <div className="font-medium text-[var(--color-text-secondary)]">OFF: 通常検索</div>
+                                          <div className="text-[var(--color-text)] opacity-80">キーワード一致重視。特定の論文を探す時や、高速に検索したい時に適しています。</div>
+                                        </div>
+                                        <div>
+                                          <div className="font-medium text-[var(--color-primary)]">ON: AI検索</div>
+                                          <div className="text-[var(--color-text)] opacity-80">検索意図重視。複雑な疑問や、文脈に関連する論文を探したい時に推奨です。</div>
+                                        </div>
+                                      </div>
+                                    </div>
+                                    {/* Tooltip Arrow */}
+                                    <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1 h-2 w-4 overflow-hidden">
+                                      <div className="w-2 h-2 bg-[var(--color-surface)] border-r border-b border-[var(--color-border)] transform rotate-45 mx-auto -mt-1 shadow-xl"></div>
+                                    </div>
+                                  </div>
                                 </div>
                               </div>
                             </div>
                           </div>
-                          {/* ツールチップの矢印 */}
-                          <div className="absolute top-full left-1/2 transform -translate-x-1/2 -mt-1">
-                            <div className="w-2 h-2 bg-[var(--color-surface)] border-r border-b border-[var(--color-border)] transform rotate-45"></div>
-                          </div>
                         </div>
+                        <p className="text-xs text-[var(--color-text-secondary)] mt-1">
+                          多層検索・AIランキング
+                        </p>
                       </div>
                     </div>
-                    <p className="text-xs text-[var(--color-text-secondary)]">
-                      多層検索・AIランキング
-                    </p>
                   </div>
                   {/* トグルスイッチ */}
+
                   <button
                     type="button"
                     role="switch"
                     aria-checked={useAdvancedSearch}
                     onClick={() => setUseAdvancedSearch(!useAdvancedSearch)}
-                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2 ${
-                      useAdvancedSearch
-                        ? "bg-[var(--color-primary)]"
-                        : "bg-[var(--color-border)]"
-                    }`}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)] focus:ring-offset-2 ${useAdvancedSearch
+                      ? "bg-[var(--color-primary)]"
+                      : "bg-[var(--color-border)]"
+                      }`}
                   >
                     <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform duration-200 ease-in-out ${
-                        useAdvancedSearch ? "translate-x-6" : "translate-x-1"
-                      }`}
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform duration-200 ease-in-out ${useAdvancedSearch ? "translate-x-6" : "translate-x-1"
+                        }`}
                     />
                   </button>
                 </div>
@@ -851,6 +875,11 @@ function HomeContent() {
             )}
           </div>
         </Card>
+
+
+
+
+
 
         {/* 意図確認チャットUI */}
         {showIntentConfirmation && (
@@ -886,16 +915,14 @@ function HomeContent() {
                 {chatMessages.map((message, index) => (
                   <div
                     key={index}
-                    className={`flex ${
-                      message.role === "user" ? "justify-end" : "justify-start"
-                    }`}
+                    className={`flex ${message.role === "user" ? "justify-end" : "justify-start"
+                      }`}
                   >
                     <div
-                      className={`max-w-[80%] rounded-lg px-4 py-2 ${
-                        message.role === "user"
-                          ? "bg-[var(--color-primary)] text-white"
-                          : "bg-[var(--color-surface)] text-[var(--color-text)] border border-[var(--color-border)]"
-                      }`}
+                      className={`max-w-[80%] rounded-lg px-4 py-2 ${message.role === "user"
+                        ? "bg-[var(--color-primary)] text-white"
+                        : "bg-[var(--color-surface)] text-[var(--color-text)] border border-[var(--color-border)]"
+                        }`}
                     >
                       <p className="text-sm whitespace-pre-wrap">
                         {message.content}
@@ -961,40 +988,40 @@ function HomeContent() {
             <div className="mb-6 flex flex-col gap-3">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold text-[var(--color-text)]">
-                  {results.papers.length > 0 
+                  {results.papers.length > 0
                     ? `検索結果 (${results.papers.length}件 / 全${results.total}件)`
                     : "検索条件"}
                 </h3>
               </div>
 
-                {/* 検索条件の折りたたみ表示 */}
-                <div className="border-t border-[var(--color-border)] pt-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-[var(--color-text)]">検索条件</span>
-                      <span className="text-xs text-[var(--color-text-secondary)]">
-                        {searchQuery} | {resultLimit}件
-                      </span>
-                    </div>
-                    <button
-                      onClick={() => setShowSearchDetails(!showSearchDetails)}
-                      className="text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-text)] transition-colors flex items-center gap-1"
-                    >
-                      {showSearchDetails ? (
-                        <>
-                          <span>詳細を非表示</span>
-                          <ChevronDown className="h-3 w-3" />
-                        </>
-                      ) : (
-                        <>
-                          <span>詳細を表示</span>
-                          <ChevronRight className="h-3 w-3" />
-                        </>
-                      )}
-                    </button>
+              {/* 検索条件の折りたたみ表示 */}
+              <div className="border-t border-[var(--color-border)] pt-3">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-[var(--color-text)]">検索条件</span>
+                    <span className="text-xs text-[var(--color-text-secondary)]">
+                      {searchQuery} | {resultLimit}件
+                    </span>
                   </div>
-                  
-                  {showSearchDetails && (
+                  <button
+                    onClick={() => setShowSearchDetails(!showSearchDetails)}
+                    className="text-xs text-[var(--color-text-secondary)] hover:text-[var(--color-text)] transition-colors flex items-center gap-1"
+                  >
+                    {showSearchDetails ? (
+                      <>
+                        <span>詳細を非表示</span>
+                        <ChevronDown className="h-3 w-3" />
+                      </>
+                    ) : (
+                      <>
+                        <span>詳細を表示</span>
+                        <ChevronRight className="h-3 w-3" />
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {showSearchDetails && (
                   <div className="mt-3 pl-4 border-l-2 border-[var(--color-border)] space-y-3 text-sm">
                     {/* Gemini API使用状況 */}
                     {geminiUsageStats && (
@@ -1003,13 +1030,12 @@ function HomeContent() {
                           <span className="text-xs font-medium text-[var(--color-text)]">
                             Gemini API使用状況
                           </span>
-                          <span className={`text-xs font-semibold ${
-                            geminiUsageStats.availableKeys === 0
-                              ? "text-red-500"
-                              : geminiUsageStats.quotaExceededKeys > 0
+                          <span className={`text-xs font-semibold ${geminiUsageStats.availableKeys === 0
+                            ? "text-red-500"
+                            : geminiUsageStats.quotaExceededKeys > 0
                               ? "text-yellow-500"
                               : "text-green-500"
-                          }`}>
+                            }`}>
                             {geminiUsageStats.availableKeys}/{geminiUsageStats.totalKeys}キー利用可能
                           </span>
                         </div>
@@ -1023,11 +1049,10 @@ function HomeContent() {
                                 キー{key.keyIndex}:
                               </span>
                               <div className="flex items-center gap-2">
-                                <span className={`${
-                                  key.quotaExceeded
-                                    ? "text-red-500"
-                                    : "text-green-500"
-                                }`}>
+                                <span className={`${key.quotaExceeded
+                                  ? "text-red-500"
+                                  : "text-green-500"
+                                  }`}>
                                   {key.quotaExceeded ? "制限超過" : "利用可能"}
                                 </span>
                                 <span className="text-[var(--color-text-secondary)]">
@@ -1044,7 +1069,7 @@ function HomeContent() {
                         )}
                       </div>
                     )}
-                    
+
                     {/* 基本設定 */}
                     <div className="space-y-2">
                       <div className="text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wide mb-2">
@@ -1059,8 +1084,8 @@ function HomeContent() {
                         <span className="text-[var(--color-text)]">
                           {sources.length > 0
                             ? sources
-                                .map((s) => SOURCE_OPTIONS.find((opt) => opt.key === s)?.label || s)
-                                .join(", ")
+                              .map((s) => SOURCE_OPTIONS.find((opt) => opt.key === s)?.label || s)
+                              .join(", ")
                             : "-"}
                         </span>
                       </div>
@@ -1079,62 +1104,62 @@ function HomeContent() {
                         <div className="space-y-2">
                           {(processingSteps.length > 0 ? processingSteps : (results.searchLogic as any)?.processingSteps || []).map((step: any, index: number) => {
                             // 処理中かどうかを判定（「中」で終わる、または最後のステップでloading中）
-                            const isProcessing = step.description.includes("中") && 
+                            const isProcessing = step.description.includes("中") &&
                               (step.description.endsWith("中") || step.description.endsWith("中...")) &&
                               (loading || index === (processingSteps.length > 0 ? processingSteps : (results.searchLogic as any)?.processingSteps || []).length - 1);
-                            
+
                             return (
-                            <div key={index} className="flex items-start gap-3 text-xs">
-                              <div className="flex-shrink-0 w-6 h-6 rounded-full bg-[var(--color-primary)] text-white flex items-center justify-center text-[10px] font-bold">
-                                {step.step}
-                              </div>
-                              <div className="flex-1 space-y-1">
-                                <div className="text-[var(--color-text)] font-medium flex items-center gap-1">
-                                  <span>{step.description.replace(/\.\.\.$/, "")}</span>
-                                  {isProcessing && (
-                                    <span className="inline-flex gap-0.5">
-                                      <span className="animate-[dots_1.4s_infinite]">.</span>
-                                      <span className="animate-[dots_1.4s_infinite_0.2s]">.</span>
-                                      <span className="animate-[dots_1.4s_infinite_0.4s]">.</span>
-                                    </span>
+                              <div key={index} className="flex items-start gap-3 text-xs">
+                                <div className="flex-shrink-0 w-6 h-6 rounded-full bg-[var(--color-primary)] text-white flex items-center justify-center text-[10px] font-bold">
+                                  {step.step}
+                                </div>
+                                <div className="flex-1 space-y-1">
+                                  <div className="text-[var(--color-text)] font-medium flex items-center gap-1">
+                                    <span>{step.description.replace(/\.\.\.$/, "")}</span>
+                                    {isProcessing && (
+                                      <span className="inline-flex gap-0.5">
+                                        <span className="animate-[dots_1.4s_infinite]">.</span>
+                                        <span className="animate-[dots_1.4s_infinite_0.2s]">.</span>
+                                        <span className="animate-[dots_1.4s_infinite_0.4s]">.</span>
+                                      </span>
+                                    )}
+                                  </div>
+                                  {step.query && (
+                                    <div className="text-[var(--color-text-secondary)] font-mono bg-[var(--color-background)] px-2 py-1 rounded break-words">
+                                      {step.query}
+                                    </div>
+                                  )}
+                                  {step.details && (
+                                    <div className="text-[var(--color-text-secondary)] space-y-1 pl-2 border-l-2 border-[var(--color-border)]">
+                                      {step.details.mainConcepts && (
+                                        <div>
+                                          <span className="font-medium">主要概念: </span>
+                                          <span>{step.details.mainConcepts.join(", ")}</span>
+                                        </div>
+                                      )}
+                                      {step.details.compoundTerms && step.details.compoundTerms.length > 0 && (
+                                        <div>
+                                          <span className="font-medium">複合語: </span>
+                                          <span>{step.details.compoundTerms.join(", ")}</span>
+                                        </div>
+                                      )}
+                                      {step.details.searchPurpose && (
+                                        <div>
+                                          <span className="font-medium">検索目的: </span>
+                                          <span>{step.details.searchPurpose}</span>
+                                        </div>
+                                      )}
+                                      {step.details.keyPhrases && step.details.keyPhrases.length > 0 && (
+                                        <div>
+                                          <span className="font-medium">重要フレーズ: </span>
+                                          <span className="font-mono">{step.details.keyPhrases.map((p: string) => `"${p}"`).join(", ")}</span>
+                                        </div>
+                                      )}
+                                    </div>
                                   )}
                                 </div>
-                                {step.query && (
-                                  <div className="text-[var(--color-text-secondary)] font-mono bg-[var(--color-background)] px-2 py-1 rounded break-words">
-                                    {step.query}
-                                  </div>
-                                )}
-                                {step.details && (
-                                  <div className="text-[var(--color-text-secondary)] space-y-1 pl-2 border-l-2 border-[var(--color-border)]">
-                                    {step.details.mainConcepts && (
-                                      <div>
-                                        <span className="font-medium">主要概念: </span>
-                                        <span>{step.details.mainConcepts.join(", ")}</span>
-                                      </div>
-                                    )}
-                                    {step.details.compoundTerms && step.details.compoundTerms.length > 0 && (
-                                      <div>
-                                        <span className="font-medium">複合語: </span>
-                                        <span>{step.details.compoundTerms.join(", ")}</span>
-                                      </div>
-                                    )}
-                                    {step.details.searchPurpose && (
-                                      <div>
-                                        <span className="font-medium">検索目的: </span>
-                                        <span>{step.details.searchPurpose}</span>
-                                      </div>
-                                    )}
-                                    {step.details.keyPhrases && step.details.keyPhrases.length > 0 && (
-                                      <div>
-                                        <span className="font-medium">重要フレーズ: </span>
-                                        <span className="font-mono">{step.details.keyPhrases.map((p: string) => `"${p}"`).join(", ")}</span>
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
                               </div>
-                            </div>
-                          );
+                            );
                           })}
                         </div>
                       </div>
@@ -1157,11 +1182,11 @@ function HomeContent() {
                         <div className="flex items-start gap-2">
                           <span className="font-medium text-[var(--color-text-secondary)] min-w-[100px]">翻訳方法:</span>
                           <span className="text-[var(--color-text)]">
-                            {results.searchLogic.translationMethod === "gemini" 
-                              ? "Gemini API（AI翻訳）" 
+                            {results.searchLogic.translationMethod === "gemini"
+                              ? "Gemini API（AI翻訳）"
                               : results.searchLogic.translationMethod === "fallback"
-                              ? "フォールバック（辞書ベース）"
-                              : "翻訳なし（英語またはその他）"}
+                                ? "フォールバック（辞書ベース）"
+                                : "翻訳なし（英語またはその他）"}
                           </span>
                         </div>
                         <div className="flex items-start gap-2">
@@ -1182,7 +1207,7 @@ function HomeContent() {
                   </div>
                 )}
               </div>
-              
+
             </div>
 
             <div className="space-y-4">
@@ -1198,19 +1223,18 @@ function HomeContent() {
                     {/* 右上の保存済みラベルとソースラベル */}
                     <div className="absolute top-0 right-0 z-10 flex items-center gap-2 p-2">
                       {paper.source && (
-                        <span className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold text-white shadow-sm ${
-                          paper.source === "semantic_scholar" 
-                            ? "bg-blue-600" 
-                            : paper.source === "pubmed"
+                        <span className={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10px] font-semibold text-white shadow-sm ${paper.source === "semantic_scholar"
+                          ? "bg-blue-600"
+                          : paper.source === "pubmed"
                             ? "bg-green-600"
                             : paper.source === "google_scholar"
-                            ? "bg-orange-600"
-                            : "bg-gray-600"
-                        }`}>
-                          {paper.source === "semantic_scholar" ? "Semantic Scholar" : 
-                           paper.source === "pubmed" ? "PubMed" : 
-                           paper.source === "google_scholar" ? "Google Scholar" :
-                           paper.source}
+                              ? "bg-orange-600"
+                              : "bg-gray-600"
+                          }`}>
+                          {paper.source === "semantic_scholar" ? "Semantic Scholar" :
+                            paper.source === "pubmed" ? "PubMed" :
+                              paper.source === "google_scholar" ? "Google Scholar" :
+                                paper.source}
                         </span>
                       )}
                       {isSaved && (
@@ -1349,7 +1373,7 @@ function HomeContent() {
                       )}
                     </button>
                   </div>
-                  
+
                   {showSearchDetails && (
                     <div className="mt-3 pl-4 border-l-2 border-[var(--color-border)] space-y-3 text-sm">
                       {/* 基本設定 */}
@@ -1366,8 +1390,8 @@ function HomeContent() {
                           <span className="text-[var(--color-text)]">
                             {sources.length > 0
                               ? sources
-                                  .map((s) => SOURCE_OPTIONS.find((opt) => opt.key === s)?.label || s)
-                                  .join(", ")
+                                .map((s) => SOURCE_OPTIONS.find((opt) => opt.key === s)?.label || s)
+                                .join(", ")
                               : "-"}
                           </span>
                         </div>
@@ -1386,62 +1410,62 @@ function HomeContent() {
                           <div className="space-y-2">
                             {(results.searchLogic as any).processingSteps.map((step: any, index: number) => {
                               // 処理中かどうかを判定（「中」で終わる、または最後のステップでloading中）
-                              const isProcessing = step.description.includes("中") && 
+                              const isProcessing = step.description.includes("中") &&
                                 (step.description.endsWith("中") || step.description.endsWith("中...")) &&
                                 (loading || index === (results.searchLogic as any).processingSteps.length - 1);
-                              
+
                               return (
-                              <div key={index} className="flex items-start gap-3 text-xs">
-                                <div className="flex-shrink-0 w-6 h-6 rounded-full bg-[var(--color-primary)] text-white flex items-center justify-center text-[10px] font-bold">
-                                  {step.step}
-                                </div>
-                                <div className="flex-1 space-y-1">
-                                  <div className="text-[var(--color-text)] font-medium flex items-center gap-1">
-                                    <span>{step.description.replace(/\.\.\.$/, "")}</span>
-                                    {isProcessing && (
-                                      <span className="inline-flex gap-0.5">
-                                        <span className="animate-[dots_1.4s_infinite]">.</span>
-                                        <span className="animate-[dots_1.4s_infinite_0.2s]">.</span>
-                                        <span className="animate-[dots_1.4s_infinite_0.4s]">.</span>
-                                      </span>
+                                <div key={index} className="flex items-start gap-3 text-xs">
+                                  <div className="flex-shrink-0 w-6 h-6 rounded-full bg-[var(--color-primary)] text-white flex items-center justify-center text-[10px] font-bold">
+                                    {step.step}
+                                  </div>
+                                  <div className="flex-1 space-y-1">
+                                    <div className="text-[var(--color-text)] font-medium flex items-center gap-1">
+                                      <span>{step.description.replace(/\.\.\.$/, "")}</span>
+                                      {isProcessing && (
+                                        <span className="inline-flex gap-0.5">
+                                          <span className="animate-[dots_1.4s_infinite]">.</span>
+                                          <span className="animate-[dots_1.4s_infinite_0.2s]">.</span>
+                                          <span className="animate-[dots_1.4s_infinite_0.4s]">.</span>
+                                        </span>
+                                      )}
+                                    </div>
+                                    {step.query && (
+                                      <div className="text-[var(--color-text-secondary)] font-mono bg-[var(--color-background)] px-2 py-1 rounded break-words">
+                                        {step.query}
+                                      </div>
+                                    )}
+                                    {step.details && (
+                                      <div className="text-[var(--color-text-secondary)] space-y-1 pl-2 border-l-2 border-[var(--color-border)]">
+                                        {step.details.mainConcepts && (
+                                          <div>
+                                            <span className="font-medium">主要概念: </span>
+                                            <span>{step.details.mainConcepts.join(", ")}</span>
+                                          </div>
+                                        )}
+                                        {step.details.compoundTerms && step.details.compoundTerms.length > 0 && (
+                                          <div>
+                                            <span className="font-medium">複合語: </span>
+                                            <span>{step.details.compoundTerms.join(", ")}</span>
+                                          </div>
+                                        )}
+                                        {step.details.searchPurpose && (
+                                          <div>
+                                            <span className="font-medium">検索目的: </span>
+                                            <span>{step.details.searchPurpose}</span>
+                                          </div>
+                                        )}
+                                        {step.details.keyPhrases && step.details.keyPhrases.length > 0 && (
+                                          <div>
+                                            <span className="font-medium">重要フレーズ: </span>
+                                            <span className="font-mono">{step.details.keyPhrases.map((p: string) => `"${p}"`).join(", ")}</span>
+                                          </div>
+                                        )}
+                                      </div>
                                     )}
                                   </div>
-                                  {step.query && (
-                                    <div className="text-[var(--color-text-secondary)] font-mono bg-[var(--color-background)] px-2 py-1 rounded break-words">
-                                      {step.query}
-                                    </div>
-                                  )}
-                                  {step.details && (
-                                    <div className="text-[var(--color-text-secondary)] space-y-1 pl-2 border-l-2 border-[var(--color-border)]">
-                                      {step.details.mainConcepts && (
-                                        <div>
-                                          <span className="font-medium">主要概念: </span>
-                                          <span>{step.details.mainConcepts.join(", ")}</span>
-                                        </div>
-                                      )}
-                                      {step.details.compoundTerms && step.details.compoundTerms.length > 0 && (
-                                        <div>
-                                          <span className="font-medium">複合語: </span>
-                                          <span>{step.details.compoundTerms.join(", ")}</span>
-                                        </div>
-                                      )}
-                                      {step.details.searchPurpose && (
-                                        <div>
-                                          <span className="font-medium">検索目的: </span>
-                                          <span>{step.details.searchPurpose}</span>
-                                        </div>
-                                      )}
-                                      {step.details.keyPhrases && step.details.keyPhrases.length > 0 && (
-                                        <div>
-                                          <span className="font-medium">重要フレーズ: </span>
-                                          <span className="font-mono">{step.details.keyPhrases.map((p: string) => `"${p}"`).join(", ")}</span>
-                                        </div>
-                                      )}
-                                    </div>
-                                  )}
                                 </div>
-                              </div>
-                            );
+                              );
                             })}
                           </div>
                         </div>
@@ -1464,11 +1488,11 @@ function HomeContent() {
                           <div className="flex items-start gap-2">
                             <span className="font-medium text-[var(--color-text-secondary)] min-w-[100px]">翻訳方法:</span>
                             <span className="text-[var(--color-text)]">
-                              {results.searchLogic.translationMethod === "gemini" 
-                                ? "Gemini API（AI翻訳）" 
+                              {results.searchLogic.translationMethod === "gemini"
+                                ? "Gemini API（AI翻訳）"
                                 : results.searchLogic.translationMethod === "fallback"
-                                ? "フォールバック（辞書ベース）"
-                                : "翻訳なし（英語またはその他）"}
+                                  ? "フォールバック（辞書ベース）"
+                                  : "翻訳なし（英語またはその他）"}
                             </span>
                           </div>
                           <div className="flex items-start gap-2">

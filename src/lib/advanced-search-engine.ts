@@ -37,7 +37,7 @@ export class AdvancedSearchEngine {
     }
   }
 
-  // 多層検索戦略（段階的にキーワードを緩和）
+  // 多層検索戦略（recommendedQueries優先）
   async multilayerSearch(
     topic: string,
     options: SearchOptions = { query: topic }
@@ -56,106 +56,68 @@ export class AdvancedSearchEngine {
         }
       }
 
-      const requiredTerms = [] as string[];
-      const ensureCoreTerms = (
-        original: string,
-        core: string[] | undefined
-      ) => {
-        if (!core?.length) return original;
-        const tokens = original
-          .split(" ")
-          .map((token) => token.trim())
-          .filter((token) => token.length > 0);
-
-        const missing = core.filter((term) => {
-          const normalized = term.toLowerCase();
-          return !tokens.some((token) =>
-            token.toLowerCase().includes(normalized)
-          );
-        });
-
-        if (missing.length > 0) {
-          requiredTerms.push(...missing);
-          return `${original} ${missing.map((term) => `"${term}"`).join(" ")}`;
-        }
-
-        return original;
-      };
-
-      // 段階的検索戦略：コアキーワードを段階的に減らしていく
-      // 引用は一文につき1個が多いので、複数のコアキーワードでヒットしない場合は段階的に緩和
-      const coreKeywords = plan?.coreKeywords || [];
-      const minResults = 5; // 最低限必要な結果数
-
-      // ステップ1: 全てのコアキーワードを含む検索（段階的にキーワードを減らす）
-      if (coreKeywords.length > 0) {
-        for (let keywordCount = coreKeywords.length; keywordCount > 0; keywordCount--) {
-          const selectedKeywords = coreKeywords.slice(0, keywordCount);
-          // Semantic Scholarは自然言語クエリをサポートしているので、キーワードをスペースで区切る
-          // 全てのキーワードを含むクエリを生成
-          const queryWithAllKeywords = selectedKeywords.join(" ");
-          
-          console.log(`[Multilayer Search] Trying with ${keywordCount} keywords: ${queryWithAllKeywords}`);
-          
-          // 複数ソースで検索
-          const results = await this.searchMultipleSources(
-            queryWithAllKeywords,
-            { ...options, plan }
-          ).catch(() => []);
-
-          // 結果が十分ある場合、または最後の試行の場合は返す
-          if (results.length >= minResults || keywordCount === 1) {
-            console.log(`[Multilayer Search] Found ${results.length} results with ${keywordCount} keywords`);
-            // 被引用数でソート（多い順）
-            const sortedResults = results.sort((a, b) => 
-              (b.citationCount || 0) - (a.citationCount || 0)
-            );
-            return this.deduplicateAndRank(sortedResults);
-          }
-        }
-      }
-
-      // ステップ2: 推奨クエリを使用
-      const queries = plan?.recommendedQueries?.length
-        ? plan.recommendedQueries.map((query) =>
-            ensureCoreTerms(query, plan?.coreKeywords)
-          )
-        : [ensureCoreTerms(topic, plan?.coreKeywords)];
-
       const searchOptions = {
         ...options,
         plan,
       };
 
-      const resultsSets = await Promise.all(
-        queries.map((query) =>
-          this.searchMultipleSources(query, searchOptions).catch(() => [])
-        )
-      );
+      // 引用符処理の改善：複合語（2語以上）のみ引用符で囲む
+      const buildWithCore = (query: string, core?: string[]) => {
+        if (!core?.length) return query;
+        
+        // 複合語（2語以上）のみ引用符で囲む
+        const quotedTerms = core
+          .filter((term) => term.split(" ").length >= 2)
+          .map((term) => `"${term}"`);
+        
+        const simpleTerms = core.filter((term) => term.split(" ").length === 1);
+        
+        return `${query} ${[...quotedTerms, ...simpleTerms].join(" ")}`.trim();
+      };
 
-      let combinedResults = this.deduplicateAndRank(resultsSets.flat());
-
-      // ステップ3: OR検索にフォールバック
-      if (combinedResults.length < minResults && queries.length > 1) {
-        const combinedQuery = queries.map((query) => `(${query})`).join(" OR ");
-        combinedResults = await this.searchMultipleSources(
-          combinedQuery,
-          searchOptions
-        ).catch(() => []);
-        combinedResults = this.deduplicateAndRank(combinedResults);
+      // ステップ1: recommendedQueriesを優先的に試す（AIが生成した完成形のクエリ）
+      if (plan?.recommendedQueries?.length) {
+        const queries = plan.recommendedQueries.slice(0, 3); // 上位3つだけ試す
+        console.log(`[Multilayer Search] Trying recommendedQueries first: ${queries.length} queries`);
+        
+        const resultsSets = await Promise.all(
+          queries.map((query) =>
+            this.searchMultipleSources(query, searchOptions).catch(() => [])
+          )
+        );
+        
+        const combined = this.deduplicateAndRank(resultsSets.flat());
+        
+        if (combined.length >= 10) {
+          // 10件以上見つかったら十分
+          console.log(`[Multilayer Search] Found ${combined.length} results with recommendedQueries`);
+          return combined;
+        }
+        
+        console.log(`[Multilayer Search] recommendedQueries returned ${combined.length} results, trying fallback`);
       }
 
-      // ステップ4: 最終フォールバック
-      if (combinedResults.length === 0) {
-        const fallbackQuery = ensureCoreTerms(topic, plan?.coreKeywords);
-        combinedResults = await this.searchMultipleSources(
-          fallbackQuery,
-          searchOptions
-        ).catch(() => []);
-        combinedResults = this.deduplicateAndRank(combinedResults);
+      // ステップ2: coreKeywordsを使った検索（改善版：段階的削減ではなく一度に試す）
+      if (plan?.coreKeywords?.length) {
+        const query = plan.coreKeywords.slice(0, 5).join(" "); // 最大5つまで
+        console.log(`[Multilayer Search] Trying coreKeywords: ${query}`);
+        
+        const results = await this.searchMultipleSources(query, searchOptions).catch(() => []);
+        
+        if (results.length >= 5) {
+          console.log(`[Multilayer Search] Found ${results.length} results with coreKeywords`);
+          return this.deduplicateAndRank(results);
+        }
+        
+        console.log(`[Multilayer Search] coreKeywords returned ${results.length} results, trying fallback`);
       }
 
-      return combinedResults;
+      // ステップ3: 元のトピックで直接検索
+      console.log(`[Multilayer Search] Trying original topic: ${topic}`);
+      const fallbackResults = await this.searchMultipleSources(topic, searchOptions).catch(() => []);
+      console.log(`[Multilayer Search] Original topic returned ${fallbackResults.length} results`);
+      
+      return this.deduplicateAndRank(fallbackResults);
     } catch (error) {
       console.error("Multilayer search error:", error);
       return [];
@@ -247,10 +209,11 @@ export class AdvancedSearchEngine {
     // 年フィルターは精度を落とす可能性があるため除外（必要なら後段でフィルター）
 
     // リトライ機能付きでAPI呼び出し
+    // テスト結果に基づき、初期待機時間を2秒に設定（レート制限対策）
     return await this.retryApiCall(
       () => this.callSemanticScholarAPI(params),
       3, // 最大3回リトライ
-      1000 // 1秒間隔
+      2000 // 2秒間隔（テストで成功した値）
     );
   }
 
@@ -281,7 +244,14 @@ export class AdvancedSearchEngine {
       );
 
       if (!searchResponse.ok) {
-        throw new Error(`PubMed esearch error: ${searchResponse.status}`);
+        // 429エラー（レート制限）の場合は空配列を返して続行
+        if (searchResponse.status === 429) {
+          console.warn(`[PubMed] Rate limit exceeded (429), returning empty results`);
+          return [];
+        }
+        // その他のエラーも空配列を返して続行（他のソースで検索を継続）
+        console.warn(`[PubMed] esearch error: ${searchResponse.status}, returning empty results`);
+        return [];
       }
 
       const searchData = await searchResponse.json();
@@ -308,6 +278,11 @@ export class AdvancedSearchEngine {
       );
 
       if (!summaryResponse.ok) {
+        // 429エラーの場合は空配列を返して続行
+        if (summaryResponse.status === 429) {
+          console.warn(`[PubMed] Rate limit exceeded (429) in esummary, returning empty results`);
+          return [];
+        }
         throw new Error(`PubMed esummary error: ${summaryResponse.status}`);
       }
 
@@ -568,14 +543,23 @@ export class AdvancedSearchEngine {
         throw new Error(`Rate limit exceeded. Please try again later.`);
       }
 
-      // 403以外のエラーは空配列を返して続行
+      // 400エラーの場合（不正なクエリなど）は空配列を返して続行（他のソースで検索を継続）
+      if (response.status === 400) {
+        console.warn(
+          `[Semantic Scholar] API returned 400 (Bad Request), returning empty results. Error: ${errorMessage}`
+        );
+        return [];
+      }
+
+      // 403エラーの場合（APIキー無効）は空配列を返して続行
       if (response.status === 403) {
         console.warn(`[Semantic Scholar] API key invalid, returning empty results`);
         return [];
       }
 
-      console.error(`[Semantic Scholar] ${errorMessage}`);
-      throw new Error(errorMessage);
+      // その他のエラーも空配列を返して続行（他のソースで検索を継続）
+      console.warn(`[Semantic Scholar] ${errorMessage}, returning empty results to continue with other sources`);
+      return [];
     }
 
     const data = await response.json();

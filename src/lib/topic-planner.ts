@@ -49,10 +49,90 @@ ${input.topic}
 `;
 
   const rawText = await callGemini(prompt);
-  const text = rawText
+  let text = rawText
     .replace(/```json/gi, "")
     .replace(/```/g, "")
     .trim();
+
+  // JSONブロックを抽出（より堅牢に）
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  if (jsonMatch) {
+    text = jsonMatch[0];
+  }
+
+  // ステップ1: まず、JSON全体からバックスペース文字(\b)を除去
+  // \bはキー名や値の前後に含まれる可能性があるため、先に除去
+  text = text.replace(/\u0008/g, ""); // \b (バックスペース文字) を除去
+
+  // ステップ2: JSON文字列値内の制御文字をエスケープ（改善版）
+  // エスケープシーケンスの正確な判定と文字列境界の識別を実装
+  let result = "";
+  let inString = false;
+  let escaped = false; // エスケープ状態を追跡
+  
+  for (let i = 0; i < text.length; i++) {
+    const char = text[i];
+    
+    // エスケープシーケンスの処理
+    // 前の文字がバックスラッシュでエスケープされている場合
+    if (escaped) {
+      // エスケープされた文字はそのまま追加（制御文字のエスケープは行わない）
+      result += char;
+      escaped = false;
+      continue;
+    }
+    
+    // バックスラッシュの検出
+    if (char === "\\") {
+      escaped = true;
+      result += char;
+      continue;
+    }
+    
+    // 文字列の開始/終了の検出
+    // エスケープされていない引用符のみが文字列の境界
+    if (char === '"') {
+      inString = !inString;
+      result += char;
+      continue;
+    }
+    
+    // 文字列内の制御文字をエスケープ
+    if (inString) {
+      const charCode = char.charCodeAt(0);
+      // Unicode制御文字（\u0000-\u001F）をエスケープ
+      if (charCode >= 0 && charCode <= 0x1F) {
+        if (char === "\n") {
+          result += "\\n";
+        } else if (char === "\r") {
+          result += "\\r";
+        } else if (char === "\t") {
+          result += "\\t";
+        } else if (char === "\f") {
+          result += "\\f";
+        } else if (char === "\b") {
+          result += "\\b";
+        } else {
+          // その他の制御文字はUnicodeエスケープ形式で
+          result += `\\u${charCode.toString(16).padStart(4, "0")}`;
+        }
+      } else {
+        result += char;
+      }
+    } else {
+      result += char;
+    }
+  }
+  
+  text = result;
+
+  // 未閉じの引用符を修正（行末の未閉じ引用符）
+  text = text.replace(/"([^"]*)$/gm, (match, content) => {
+    if (!content.includes('"') && !content.includes('\\')) {
+      return `"${content}"`;
+    }
+    return match;
+  });
 
   try {
     const json = JSON.parse(text);
@@ -73,7 +153,25 @@ ${input.topic}
       confidence: json.confidence ?? 0.5,
     };
   } catch (error) {
-    console.error("Topic planner JSON parse error:", error, text);
-    throw new Error("検索プランの生成に失敗しました");
+    console.error("Topic planner JSON parse error:", error);
+    console.error("Failed JSON text (first 500 chars):", text.substring(0, 500));
+    
+    // フォールバック: 基本的な検索プランを返す
+    return {
+      primaryTarget: input.topic,
+      researchFocus: [],
+      coreKeywords: input.topic.split(" ").slice(0, 5),
+      supportingKeywords: [],
+      excludeKeywords: [],
+      recommendedQueries: [input.topic],
+      recommendedDatabases: ["semantic_scholar", "pubmed"],
+      recommendedFilters: {
+        minCitations: 0,
+        dateRange: {},
+      },
+      reasoning: "JSONパースに失敗したため、基本的な検索プランを使用します",
+      userIntentSummary: input.topic,
+      confidence: 0.3,
+    };
   }
 }

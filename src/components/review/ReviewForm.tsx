@@ -44,7 +44,13 @@ export default function ReviewForm({
   const [libraryPapers, setLibraryPapers] = useState<Paper[]>([]);
   const [loadingLibrary, setLoadingLibrary] = useState(false);
   const [activeTab, setActiveTab] = useState<"search" | "library">("search");
-  const [searchMode, setSearchMode] = useState<"auto" | "manual">("auto");
+  const [searchMode, setSearchMode] = useState<"auto" | "manual" | "deep">(
+    "auto"
+  );
+  const [deepResearching, setDeepResearching] = useState(false);
+  const [deepResearchSessionId, setDeepResearchSessionId] = useState<
+    string | null
+  >(null);
   const [filters, setFilters] = useState<FilterSettings>({
     outputType: "auto",
     minCitations: 0,
@@ -144,6 +150,7 @@ export default function ReviewForm({
           maxPapers: 10,
           filters,
           plan: activePlan,
+          sources: filters.databases || ["semantic_scholar", "pubmed"],
         }),
       });
 
@@ -217,6 +224,7 @@ export default function ReviewForm({
           maxPapers: 15,
           filters,
           plan: activePlan,
+          sources: filters.databases || ["semantic_scholar", "pubmed"],
         }),
       });
 
@@ -238,9 +246,192 @@ export default function ReviewForm({
       }
     } catch (error) {
       console.error("AI search error:", error);
-      toast.error("AI検索に失敗しました");
+      const errorMessage =
+        error instanceof Error ? error.message : "AI検索に失敗しました";
+      toast.error(`AI検索に失敗しました: ${errorMessage}`);
     } finally {
       setSearching(false);
+    }
+  };
+
+  const handleDeepResearch = async () => {
+    if (!topic.trim()) {
+      toast.error("研究トピックを入力してください");
+      return;
+    }
+
+    setDeepResearching(true);
+    try {
+      // ステップ1: Deep Research実行（10個の論文を検索）
+      toast.loading("Deep Researchを実行中...（10件の論文を検索中）", {
+        id: "deep-research",
+      });
+
+      const deepResponse = await fetch("/api/deep-research", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          query: topic,
+          maxPapers: 10,
+          sources: ["pubmed"], // PubMedのみで検索（Semantic Scholarのエラーを回避）
+          includeCitationNetwork: false, // PubMedでは引用ネットワーク検索は利用できないため無効化
+          provider: "gemini",
+        }),
+      });
+
+      if (!deepResponse.ok) {
+        const errorData = await deepResponse.json().catch(() => ({}));
+        const errorMessage = errorData.error || "Deep Researchに失敗しました";
+        const errorDetails = errorData.details
+          ? `\n詳細: ${errorData.details}`
+          : "";
+        const errorHint = errorData.hint ? `\nヒント: ${errorData.hint}` : "";
+        console.error("Deep Research API error:", errorData);
+        toast.error(`${errorMessage}${errorDetails}${errorHint}`, {
+          id: "deep-research",
+        });
+        throw new Error(`${errorMessage}${errorDetails}${errorHint}`);
+      }
+
+      const deepData = await deepResponse.json();
+      setDeepResearchSessionId(deepData.sessionId);
+
+      toast.success(
+        `${deepData.totalPapers}件の論文を検索しました。AIが厳選中...`,
+        { id: "deep-research" }
+      );
+
+      // ステップ2: まとめファイル生成（7個の論文を厳選）
+      toast.loading("AIが関連性の高い論文を厳選中...", {
+        id: "deep-research-summary",
+      });
+
+      const summaryResponse = await fetch(
+        `/api/deep-research/${deepData.sessionId}/summary`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            selectedCount: 7,
+            provider: "gemini",
+          }),
+        }
+      );
+
+      if (!summaryResponse.ok) {
+        const statusCode = summaryResponse.status;
+        let errorData: any = {};
+
+        // レスポンスボディを取得（空の場合も考慮）
+        try {
+          const text = await summaryResponse.text();
+          if (text && text.trim().length > 0) {
+            errorData = JSON.parse(text);
+          }
+        } catch (parseError) {
+          console.error("Failed to parse error response:", parseError);
+          // パースに失敗した場合は空オブジェクトのまま
+        }
+
+        // HTTPステータスコードに基づいてエラーメッセージを構築
+        let errorMessage =
+          errorData.error || "まとめファイル生成に失敗しました";
+        let errorDetails = "";
+
+        if (errorData.details) {
+          errorDetails += `\n詳細: ${errorData.details}`;
+        }
+
+        if (errorData.sessionId) {
+          errorDetails += `\nセッションID: ${errorData.sessionId}`;
+        }
+
+        if (errorData.code) {
+          errorDetails += `\nエラーコード: ${errorData.code}`;
+        }
+
+        if (errorData.hint) {
+          errorDetails += `\nヒント: ${errorData.hint}`;
+        }
+
+        if (errorData.totalPapersInSession !== undefined) {
+          errorDetails += `\nセッション内の論文数: ${errorData.totalPapersInSession}件`;
+        }
+
+        if (errorData.requestedCount !== undefined) {
+          errorDetails += `\n要求された論文数: ${errorData.requestedCount}件`;
+        }
+
+        // ステータスコード別のメッセージ
+        if (statusCode === 404) {
+          if (errorData.error?.includes("セッション")) {
+            errorMessage = "セッションが見つかりません";
+          } else if (errorData.error?.includes("論文")) {
+            errorMessage = "論文が見つかりません";
+          } else {
+            errorMessage = "リソースが見つかりません（404）";
+          }
+        } else if (statusCode === 500) {
+          errorMessage = "サーバーエラーが発生しました";
+        }
+
+        console.error("Summary generation API error:", {
+          statusCode,
+          errorData,
+          sessionId: deepData.sessionId,
+        });
+
+        toast.error(`${errorMessage}${errorDetails}`, {
+          id: "deep-research-summary",
+          duration: 5000, // エラーメッセージを長めに表示
+        });
+        throw new Error(`${errorMessage}${errorDetails}`);
+      }
+
+      const summaryData = await summaryResponse.json();
+
+      // まとめファイルと厳選論文を設定
+      // onGenerateを呼び出してレビューを設定
+      // ただし、Deep Researchの場合は既にレビューが生成されているので、
+      // 親コンポーネントに通知する必要がある
+      setPapers(summaryData.selectedPapers);
+      setSearchMode("deep");
+
+      toast.success(
+        `Deep Research完了！${summaryData.selectedPapers.length}件の論文を厳選してまとめファイルを生成しました`,
+        { id: "deep-research-summary" }
+      );
+
+      // 親コンポーネントにレビューを設定してもらうため、カスタムイベントを発火
+      // または、onGenerateを呼び出す（ただし、既にレビューが生成されているので注意）
+      // ここでは、親コンポーネントでDeep Researchの結果を処理する必要がある
+      // 一時的な解決策として、windowイベントを使用
+      window.dispatchEvent(
+        new CustomEvent("deepResearchComplete", {
+          detail: {
+            review: summaryData.review,
+            papers: summaryData.selectedPapers,
+            sessionId: deepData.sessionId,
+            totalPapers: deepData.totalPapers,
+          },
+        })
+      );
+    } catch (error) {
+      console.error("Deep research error:", error);
+      const errorMessage =
+        error instanceof Error ? error.message : "Deep Researchに失敗しました";
+      toast.error(`Deep Researchに失敗しました: ${errorMessage}`, {
+        id: "deep-research",
+      });
+      toast.error(`Deep Researchに失敗しました: ${errorMessage}`, {
+        id: "deep-research-summary",
+      });
+    } finally {
+      setDeepResearching(false);
     }
   };
 
@@ -294,7 +485,7 @@ export default function ReviewForm({
         <label className="block text-sm font-medium text-gray-700 mb-3">
           検索モード
         </label>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           <button
             onClick={() => setSearchMode("auto")}
             className={`p-3 text-left border-2 rounded-lg transition-colors ${
@@ -305,7 +496,7 @@ export default function ReviewForm({
           >
             <div className="font-medium text-sm">🤖 自動検索</div>
             <div className="text-xs text-gray-600 mt-1">
-              トピックから自動的に関連論文を検索・選択
+              トピックから自動的に関連論文を検索・選択（15件程度）
             </div>
           </button>
           <button
@@ -319,6 +510,19 @@ export default function ReviewForm({
             <div className="font-medium text-sm">✋ 手動選択</div>
             <div className="text-xs text-gray-600 mt-1">
               自分で論文を検索・選択して指定
+            </div>
+          </button>
+          <button
+            onClick={() => setSearchMode("deep")}
+            className={`p-3 text-left border-2 rounded-lg transition-colors ${
+              searchMode === "deep"
+                ? "border-pink-500 bg-pink-50"
+                : "border-gray-200 hover:border-gray-300"
+            }`}
+          >
+            <div className="font-medium text-sm">🔬 Deep Research</div>
+            <div className="text-xs text-gray-600 mt-1">
+              10件の論文を検索し、AIが厳選してまとめファイルを生成
             </div>
           </button>
         </div>
@@ -347,6 +551,31 @@ export default function ReviewForm({
           </button>
           <p className="text-xs text-gray-500 mt-2 text-center">
             AIが複数の検索クエリを生成し、関連性の高い論文を自動的に検索・選択します
+          </p>
+        </div>
+      )}
+
+      {searchMode === "deep" && (
+        <div>
+          <button
+            onClick={handleDeepResearch}
+            disabled={deepResearching || !topic.trim()}
+            className="w-full p-4 bg-gradient-to-r from-purple-500 to-indigo-500 text-white rounded-lg hover:from-purple-600 hover:to-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 flex items-center justify-center gap-2"
+          >
+            {deepResearching ? (
+              <>
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                Deep Research実行中...（10件の論文を検索中）
+              </>
+            ) : (
+              <>
+                <Sparkles className="h-5 w-5" />
+                Deep Researchを実行
+              </>
+            )}
+          </button>
+          <p className="text-xs text-gray-500 mt-2 text-center">
+            複数のデータベースで包括的に検索し、AIが関連性の高い論文を厳選してまとめファイルを生成します
           </p>
         </div>
       )}
@@ -515,30 +744,36 @@ export default function ReviewForm({
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <button
-          onClick={() => onGenerate("openai", searchMode, filters)}
-          disabled={!canGenerate || generating}
-          className="flex items-center justify-center gap-2 p-3 border-2 border-blue-200 rounded-lg hover:border-blue-400 hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          <Bot className="h-5 w-5 text-blue-600" />
-          <div className="text-left">
-            <div className="font-medium text-blue-900">OpenAI GPT-4</div>
-            <div className="text-xs text-blue-600">高品質・詳細</div>
-          </div>
-        </button>
-        <button
-          onClick={() => onGenerate("gemini", searchMode, filters)}
-          disabled={!canGenerate || generating}
-          className="flex items-center justify-center gap-2 p-3 border-2 border-purple-200 rounded-lg hover:border-purple-400 hover:bg-purple-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          <Sparkles className="h-5 w-5 text-purple-600" />
-          <div className="text-left">
-            <div className="font-medium text-purple-900">Google Gemini</div>
-            <div className="text-xs text-purple-600">高速・効率的</div>
-          </div>
-        </button>
-      </div>
+      {searchMode !== "deep" && (
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            onClick={() => {
+              onGenerate("openai", searchMode as "auto" | "manual", filters);
+            }}
+            disabled={!canGenerate || generating}
+            className="flex items-center justify-center gap-2 p-3 border-2 border-blue-200 rounded-lg hover:border-blue-400 hover:bg-blue-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            <Bot className="h-5 w-5 text-blue-600" />
+            <div className="text-left">
+              <div className="font-medium text-blue-900">OpenAI GPT-4</div>
+              <div className="text-xs text-blue-600">高品質・詳細</div>
+            </div>
+          </button>
+          <button
+            onClick={() => {
+              onGenerate("gemini", searchMode as "auto" | "manual", filters);
+            }}
+            disabled={!canGenerate || generating}
+            className="flex items-center justify-center gap-2 p-3 border-2 border-purple-200 rounded-lg hover:border-purple-400 hover:bg-purple-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            <Sparkles className="h-5 w-5 text-purple-600" />
+            <div className="text-left">
+              <div className="font-medium text-purple-900">Google Gemini</div>
+              <div className="text-xs text-purple-600">高速・効率的</div>
+            </div>
+          </button>
+        </div>
+      )}
 
       {generating && (
         <div className="w-full bg-gray-100 text-gray-600 py-3 px-4 rounded-md font-semibold flex items-center justify-center gap-2">

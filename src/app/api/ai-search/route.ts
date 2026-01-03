@@ -7,6 +7,18 @@ import { isRateLimited } from "@/lib/rate-limit";
 
 export async function POST(request: NextRequest) {
   try {
+    // リクエストボディのパースを安全に行う
+    let requestBody;
+    try {
+      requestBody = await request.json();
+    } catch (parseError) {
+      console.error("Request body parse error:", parseError);
+      return NextResponse.json(
+        { error: "リクエストボディの解析に失敗しました", details: parseError instanceof Error ? parseError.message : "Unknown error" },
+        { status: 400 }
+      );
+    }
+
     const {
       topic,
       provider = "gemini",
@@ -16,6 +28,7 @@ export async function POST(request: NextRequest) {
       userId = "demo-user-123",
       sources = ["semantic_scholar", "pubmed"], // ソース選択パラメータを追加
       reviewOnly = false, // Review論文のみ検索（オプション）
+      plan, // リクエストから取得したplanを使用
     }: {
       topic: string;
       provider?: AIProvider;
@@ -25,7 +38,8 @@ export async function POST(request: NextRequest) {
       userId?: string;
       sources?: string[]; // ソース選択パラメータ
       reviewOnly?: boolean; // Review論文のみ検索
-    } = await request.json();
+      plan?: SearchPlan; // リクエストから取得したplan
+    } = requestBody;
 
     if (!topic || topic.trim().length === 0) {
       return NextResponse.json(
@@ -49,11 +63,11 @@ export async function POST(request: NextRequest) {
     }
 
     // 高度な検索エンジンを使用
-    let plan: SearchPlan | undefined;
+    let searchPlan: SearchPlan | undefined = plan; // リクエストから取得したplanを使用
 
-    if (usePlanner) {
+    if (!searchPlan && usePlanner) {
       try {
-        plan = await generateSearchPlan({ topic, language: "ja" });
+        searchPlan = await generateSearchPlan({ topic, language: "ja" });
       } catch (plannerError) {
         console.warn(
           "Topic planner failed, proceeding without plan:",
@@ -91,52 +105,14 @@ export async function POST(request: NextRequest) {
         ), // リクエストされたソースを使用（Semantic ScholarとPubMedのみサポート）
         internetFilter: "all",
       },
-      plan,
+      plan: searchPlan,
     };
 
-    // 多層検索を実行
+    // 多層検索を実行（recommendedQueries優先、フォールバック処理も含む）
     let papers = await advancedSearchEngine.multilayerSearch(
       topic,
       searchOptions
     );
-
-    const buildWithCore = (query: string, core?: string[]) => {
-      if (!core?.length) return query;
-      const required = core.map((term) => `"${term}"`).join(" ");
-      return `${query} ${required}`.trim();
-    };
-
-    if (papers.length === 0 && plan?.recommendedQueries?.length) {
-      try {
-        const combinedQuery = plan.recommendedQueries
-          .map((query) => `(${query})`)
-          .join(" OR ");
-        const enrichedQuery = buildWithCore(combinedQuery, plan.coreKeywords);
-        papers = await advancedSearchEngine.basicSearch(
-          enrichedQuery,
-          searchOptions
-        );
-      } catch {}
-    }
-
-    if (papers.length === 0) {
-      try {
-        const relaxedOptions: SearchOptions = {
-          ...searchOptions,
-          filters: searchOptions.filters
-            ? {
-                ...searchOptions.filters,
-                minCitations: 0,
-              }
-            : undefined,
-        };
-        const fallbackQuery = buildWithCore(topic, plan?.coreKeywords);
-        papers = await advancedSearchEngine.basicSearch(
-          fallbackQuery,
-          relaxedOptions
-        );
-      } catch {}
-    }
 
     // フィルター適用
     const filteredPapers = filters
@@ -209,7 +185,7 @@ export async function POST(request: NextRequest) {
           : "関連する論文が見つかりませんでした。検索条件を変更してお試しください。",
       stats: searchStats,
       provider: provider,
-      plan,
+      plan: searchPlan,
       sourceStats: sourceStats, // ソース統計を追加
       searchLogic: {
         originalQuery: topic.trim(),
@@ -221,7 +197,10 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("Advanced AI search error:", error);
     return NextResponse.json(
-      { error: "高度なAI検索に失敗しました" },
+      { 
+        error: "高度なAI検索に失敗しました",
+        details: error instanceof Error ? error.message : "Unknown error"
+      },
       { status: 500 }
     );
   }

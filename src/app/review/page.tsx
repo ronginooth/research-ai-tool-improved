@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "react-hot-toast";
 import Link from "next/link";
 import { Bell, FileText, Settings, Eye, Edit3, Save } from "lucide-react";
@@ -94,11 +94,32 @@ KIF6遺伝子多型は心血管リスクの重要な予測因子として注目�
   const [generating, setGenerating] = useState(false);
   const [selectedProvider, setSelectedProvider] =
     useState<AIProvider>("gemini");
-  const [searchMode, setSearchMode] = useState<"auto" | "manual">("auto");
+  const [searchMode, setSearchMode] = useState<"auto" | "manual" | "deep">("auto");
   const [viewMode, setViewMode] = useState<"edit" | "preview" | "split">(
     "edit"
   );
   const [saving, setSaving] = useState(false);
+  const [deepResearchSessionId, setDeepResearchSessionId] = useState<string | null>(null);
+  const [totalPapersCount, setTotalPapersCount] = useState<number>(0);
+  const [selectedPaperCount, setSelectedPaperCount] = useState<number>(0);
+
+  // Deep Research完了イベントをリッスン
+  useEffect(() => {
+    const handleDeepResearchComplete = (event: CustomEvent) => {
+      const { review: deepReview, papers: deepPapers, sessionId, totalPapers } = event.detail;
+      setReview(deepReview);
+      setPapers(deepPapers);
+      setDeepResearchSessionId(sessionId);
+      setTotalPapersCount(totalPapers);
+      setSelectedPaperCount(deepPapers.length);
+      toast.success("Deep Researchが完了しました");
+    };
+
+    window.addEventListener("deepResearchComplete", handleDeepResearchComplete as EventListener);
+    return () => {
+      window.removeEventListener("deepResearchComplete", handleDeepResearchComplete as EventListener);
+    };
+  }, []);
 
   const handleSaveReview = async () => {
     if (!topic || !review) {
@@ -386,6 +407,29 @@ KIF6遺伝子多型は心血管リスクの重要な予測因子として注目�
                               }}
                             />
                           </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Deep Researchセッション情報 */}
+                    {deepResearchSessionId && (
+                      <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h4 className="font-medium text-blue-900">Deep Researchセッション</h4>
+                            <p className="text-sm text-blue-700 mt-1">
+                              全{totalPapersCount}件の論文から{selectedPaperCount}件を厳選
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => {
+                              // 論文リストページに遷移（将来実装）
+                              toast.info("論文リスト表示機能は今後実装予定です");
+                            }}
+                            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
+                          >
+                            全論文リストを見る
+                          </button>
                         </div>
                       </div>
                     )}

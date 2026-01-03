@@ -35,6 +35,7 @@ import TagManager from "@/components/library/TagManager";
 import ResizableTable from "@/components/library/ResizableTable";
 import ReviewCard from "@/components/library/ReviewCard";
 import PaperCardMenu from "@/components/library/PaperCardMenu";
+import { getVersionString } from "@/lib/version";
 import {
   Paper,
   LibraryPaper,
@@ -1637,7 +1638,7 @@ supabase-thumbnail-migration.sql`;
       <main className="mx-auto w-full max-w-6xl px-6 py-6">
         {/* 中央の陰影アイコン */}
         <section className="mb-6">
-          <div className="flex items-center justify-center">
+          <div className="flex items-center justify-center gap-3">
             <div className="flex-shrink-0" style={{ filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1))', opacity: 0.15 }}>
               <svg width="80" height="80" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <circle cx="16" cy="16" r="11" stroke="currentColor" strokeWidth="2" fill="none" className="text-[var(--color-text)]"/>
@@ -1648,6 +1649,10 @@ supabase-thumbnail-migration.sql`;
                 <path d="M12 18Q16 17 20 18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" fill="none" className="text-[var(--color-text)]"/>
               </svg>
             </div>
+            {/* バージョン表示 */}
+            <span className="text-sm text-[var(--color-text-secondary)] font-medium">
+              {getVersionString()}
+            </span>
           </div>
         </section>
 

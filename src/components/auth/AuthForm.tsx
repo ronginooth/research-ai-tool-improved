@@ -3,12 +3,13 @@
 import { useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "react-hot-toast";
-import { Mail, Lock, LogIn, UserPlus, Loader2 } from "lucide-react";
+import { Mail, Lock, LogIn, UserPlus, Loader2, Key } from "lucide-react";
 
 export default function AuthForm() {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [inviteCode, setInviteCode] = useState("");
   const [loading, setLoading] = useState(false);
   const { signIn, signUp, signInWithGoogle } = useAuth();
 
@@ -21,6 +22,11 @@ export default function AuthForm() {
         await signIn(email, password);
         toast.success("ログインしました");
       } else {
+        // 招待コードのチェック
+        const validCode = process.env.NEXT_PUBLIC_SIGNUP_INVITE_CODE;
+        if (validCode && inviteCode !== validCode) {
+          throw new Error("招待コードが正しくありません");
+        }
         await signUp(email, password);
         toast.success("アカウントを作成しました。メールを確認してください。");
       }
@@ -90,6 +96,28 @@ export default function AuthForm() {
               />
             </div>
           </div>
+
+          {!isLogin && (
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-2">
+                招待コード
+              </label>
+              <div className="relative">
+                <Key className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-slate-400" />
+                <input
+                  type="text"
+                  value={inviteCode}
+                  onChange={(e) => setInviteCode(e.target.value)}
+                  required
+                  className="w-full pl-10 pr-4 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="招待コードを入力"
+                />
+              </div>
+              <p className="text-xs text-slate-500 mt-1">
+                管理者から受け取った招待コードを入力してください
+              </p>
+            </div>
+          )}
 
           <button
             type="submit"

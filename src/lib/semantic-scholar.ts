@@ -2,17 +2,12 @@ export function s2Headers(): Record<string, string> {
   const headers: Record<string, string> = {
     "User-Agent": "Research-AI-Tool-Improved/2.0",
   };
-  
-  // TODO: 一時的にAPIキーを無効化（将来的に戻す可能性あり）
-  // Semantic Scholar APIキーを使用しない仕様に変更
-  // 将来的にAPIキーを有効化する場合は、以下のコメントを外す
-  /*
+
   const apiKey = process.env.SEMANTIC_SCHOLAR_API_KEY;
   if (apiKey && apiKey.trim().length > 0) {
     headers["x-api-key"] = apiKey.trim();
   }
-  */
-  
+
   return headers;
 }
 
@@ -27,7 +22,7 @@ export async function testSemanticScholarApiKey(): Promise<{
   message?: string;
 }> {
   const apiKey = process.env.SEMANTIC_SCHOLAR_API_KEY;
-  
+
   if (!apiKey || apiKey.trim().length === 0) {
     return {
       valid: false,
