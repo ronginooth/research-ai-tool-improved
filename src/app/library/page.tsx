@@ -35,7 +35,7 @@ import TagManager from "@/components/library/TagManager";
 import ResizableTable from "@/components/library/ResizableTable";
 import ReviewCard from "@/components/library/ReviewCard";
 import PaperCardMenu from "@/components/library/PaperCardMenu";
-import { getVersionString } from "@/lib/version";
+import { getVersionString } from "@/lib/app-version";
 import {
   Paper,
   LibraryPaper,
@@ -153,7 +153,7 @@ KIF6遺伝子多型は心血管リスクの重要な予測因子として注目�
   const [highlights, setHighlights] = useState<string[]>([]);
   // selectedPaperのIDを保持（papersが更新されても、selectedPaperを維持するため）
   const selectedPaperIdRef = useRef<string | null>(null);
-  
+
   // selectedPaperが変更されたときに、IDを保持
   useEffect(() => {
     if (selectedPaper) {
@@ -185,7 +185,7 @@ KIF6遺伝子多型は心血管リスクの重要な予測因子として注目�
   const [importing, setImporting] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
-  
+
   // レイアウト設定関連のstate
   const [showLayoutSettings, setShowLayoutSettings] = useState(false);
   const [groupBy, setGroupBy] = useState<"tag" | "year" | "venue" | "none">("none");
@@ -197,7 +197,7 @@ KIF6遺伝子多型は心血管リスクの重要な予測因子として注目�
   const [foldContentAtRight, setFoldContentAtRight] = useState(true);
   const [loadLimit, setLoadLimit] = useState<number>(25);
   const [textDisplayMode, setTextDisplayMode] = useState<"wrap" | "truncate">("truncate");
-  
+
   // 表示項目の設定
   const [visibleCardFields, setVisibleCardFields] = useState<{
     thumbnail: boolean;
@@ -231,7 +231,7 @@ KIF6遺伝子多型は心血管リスクの重要な予測因子として注目�
       const savedSettings = localStorage.getItem("library-view-settings");
       if (savedSettings) {
         const settings = JSON.parse(savedSettings);
-        
+
         // 設定を復元（デフォルト値とマージ）
         if (settings.cardSize) setCardSize(settings.cardSize);
         if (settings.textDisplayMode) setTextDisplayMode(settings.textDisplayMode);
@@ -261,7 +261,7 @@ KIF6遺伝子多型は心血管リスクの重要な予測因子として注目�
   // 設定が変更されたらlocalStorageに保存（初期化後のみ）
   useEffect(() => {
     if (!settingsInitialized) return; // 初期化前は保存しない
-    
+
     try {
       const settings = {
         cardSize,
@@ -373,7 +373,7 @@ KIF6遺伝子多型は心血管リスクの重要な予測因子として注目�
       const stillExists = papers.some(
         (p) => p.id === currentSelectedId || p.paperId === currentSelectedId
       );
-      
+
       // 論文がリストから削除された場合のみ、selectedPaperをクリア
       // タグ追加やサムネイルアップロードの場合は論文は存在するはずなので、この処理は通常実行されない
       if (!stillExists) {
@@ -576,7 +576,7 @@ KIF6遺伝子多型は心血管リスクの重要な予測因子として注目�
 
     filteredAndSortedPapers.forEach((paper) => {
       let key = "その他";
-      
+
       if (groupBy === "tag") {
         const paperTags = getPaperTags(paper);
         if (paperTags.length > 0) {
@@ -655,9 +655,9 @@ KIF6遺伝子多型は心血管リスクの重要な予測因子として注目�
         prev.map((paper) =>
           paper.id === paperId
             ? {
-                ...paper,
-                tags: result.tags,
-              }
+              ...paper,
+              tags: result.tags,
+            }
             : paper
         )
       );
@@ -684,9 +684,9 @@ KIF6遺伝子多型は心血管リスクの重要な予測因子として注目�
         prev.map((paper) =>
           paper.id === paperId
             ? {
-                ...paper,
-                tags: updatedTags,
-              }
+              ...paper,
+              tags: updatedTags,
+            }
             : paper
         )
       );
@@ -723,9 +723,9 @@ KIF6遺伝子多型は心血管リスクの重要な予測因子として注目�
         prev.map((paper) =>
           paper.id === paperId
             ? {
-                ...paper,
-                tags: result.tags,
-              }
+              ...paper,
+              tags: result.tags,
+            }
             : paper
         )
       );
@@ -747,9 +747,9 @@ KIF6遺伝子多型は心血管リスクの重要な予測因子として注目�
         prev.map((paper) =>
           paper.id === paperId
             ? {
-                ...paper,
-                tags: updatedTags,
-              }
+              ...paper,
+              tags: updatedTags,
+            }
             : paper
         )
       );
@@ -795,15 +795,15 @@ KIF6遺伝子多型は心血管リスクの重要な予測因子として注目�
           const text = await response.text();
           errorData = { error: text || `HTTP ${response.status}: ${response.statusText}` };
         }
-        
+
         console.error("Favorite toggle API error:", {
           status: response.status,
           statusText: response.statusText,
           error: errorData,
         });
-        
+
         const errorMessage = errorData.error || errorData.message || "お気に入りの更新に失敗しました";
-        
+
         // カラムが存在しない場合の特別な処理
         if (errorMessage.includes("is_favoriteカラムが存在しません") || errorMessage.includes("column") || errorMessage.includes("is_favorite")) {
           const migrationMessage = `データベースにis_favoriteカラムが存在しません。
@@ -817,13 +817,13 @@ CREATE INDEX IF NOT EXISTS idx_user_library_is_favorite ON user_library(user_id,
 
 または、以下のマイグレーションファイルを実行してください：
 database/migrations/add_is_favorite_column.sql`;
-          
+
           alert(migrationMessage);
           console.error("マイグレーションが必要です:", migrationMessage);
         } else {
           alert(errorMessage);
         }
-        
+
         throw new Error(errorMessage);
       }
 
@@ -834,10 +834,10 @@ database/migrations/add_is_favorite_column.sql`;
         prev.map((paper) =>
           paper.id === paperId
             ? {
-                ...paper,
-                is_favorite: result.isFavorite,
-                isFavorite: result.isFavorite,
-              }
+              ...paper,
+              is_favorite: result.isFavorite,
+              isFavorite: result.isFavorite,
+            }
             : paper
         )
       );
@@ -950,9 +950,9 @@ database/migrations/add_is_favorite_column.sql`;
           prev.map((paper) =>
             paper.id === paperId
               ? {
-                  ...paper,
-                  tags: data.tags,
-                }
+                ...paper,
+                tags: data.tags,
+              }
               : paper
           )
         );
@@ -1007,9 +1007,9 @@ database/migrations/add_is_favorite_column.sql`;
           prev.map((paper) =>
             paper.id === paperId
               ? {
-                  ...paper,
-                  tags: data.tags,
-                }
+                ...paper,
+                tags: data.tags,
+              }
               : paper
           )
         );
@@ -1151,7 +1151,7 @@ database/migrations/add_is_favorite_column.sql`;
         const errorMessage = errorData.error || "画像のアップロードに失敗しました";
         const errorDetails = errorData.details || "";
         const migrationSql = errorData.migrationSql || "";
-        
+
         // カラムが存在しない場合の特別な処理
         if (errorMessage.includes("thumbnail_urlカラムが存在しません") || errorMessage.includes("column") || errorMessage.includes("thumbnail_url")) {
           const migrationMessage = `データベースにthumbnail_urlカラムが存在しません。
@@ -1165,12 +1165,12 @@ CREATE INDEX IF NOT EXISTS idx_user_library_thumbnail_url ON user_library(thumbn
 
 または、以下のマイグレーションファイルを実行してください：
 supabase-thumbnail-migration.sql`;
-          
+
           alert(migrationMessage);
           console.error("マイグレーションが必要です:", migrationMessage);
           throw new Error(errorMessage);
         }
-        
+
         // バケット関連のエラーの場合、詳細な案内を表示
         if (errorMessage.includes("バケット") || errorMessage.includes("Bucket")) {
           const fullMessage = `${errorMessage}\n\n${errorDetails}\n\n` +
@@ -1182,7 +1182,7 @@ supabase-thumbnail-migration.sql`;
           alert(fullMessage);
           throw new Error(errorMessage);
         }
-        
+
         alert(`${errorMessage}\n\n${errorDetails ? `詳細: ${errorDetails}` : ""}`);
         throw new Error(errorMessage);
       }
@@ -1194,9 +1194,9 @@ supabase-thumbnail-migration.sql`;
         prev.map((paper) =>
           paper.id === paperId
             ? {
-                ...paper,
-                thumbnail_url: result.thumbnailUrl,
-              }
+              ...paper,
+              thumbnail_url: result.thumbnailUrl,
+            }
             : paper
         )
       );
@@ -1230,7 +1230,7 @@ supabase-thumbnail-migration.sql`;
 
   // カードビューのレンダリング関数
   const renderPaperCard = (
-    paper: Paper | LibraryPaper, 
+    paper: Paper | LibraryPaper,
     isBoard = false,
     size: "xl" | "large" | "medium" | "small" = cardSize,
     textMode: "wrap" | "truncate" = textDisplayMode,
@@ -1241,9 +1241,9 @@ supabase-thumbnail-migration.sql`;
     );
     const hasPreview = Boolean(
       (paper as any)?.pdfUrl ??
-        (paper as any)?.pdf_url ??
-        (paper as any)?.htmlUrl ??
-        (paper as any)?.html_url
+      (paper as any)?.pdf_url ??
+      (paper as any)?.htmlUrl ??
+      (paper as any)?.html_url
     );
     // サムネイル画像の取得優先順位: 1. thumbnail_url, 2. notesフィールド, 3. デフォルト画像
     const thumbnailUrl = (paper as any)?.thumbnail_url || (paper as any)?.notes;
@@ -1271,10 +1271,10 @@ supabase-thumbnail-migration.sql`;
     const widthStyle = isSmall ? { width: "120px", minWidth: "120px", maxWidth: "120px" } : {};
 
     // テキスト表示モードに応じたクラス
-    const titleDisplayClass = textMode === "wrap" 
-      ? "" 
-      : isSmall 
-        ? "line-clamp-3" 
+    const titleDisplayClass = textMode === "wrap"
+      ? ""
+      : isSmall
+        ? "line-clamp-3"
         : "line-clamp-2";
 
     const abstractDisplayClass = textMode === "wrap"
@@ -1285,9 +1285,8 @@ supabase-thumbnail-migration.sql`;
       <div
         key={paper.id}
         style={widthStyle}
-        className={`group relative flex h-full flex-col items-start overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] ${cardSizeClasses[size]} text-left transition hover:-translate-y-0.5 hover:shadow-md ${
-          hasAiSummary ? "border-[var(--color-primary)]/30" : ""
-        } ${isSelected ? "border-[var(--color-primary)] ring-2 ring-[var(--color-primary)]/20" : ""} ${isBoard ? "w-full" : ""}`}
+        className={`group relative flex h-full flex-col items-start overflow-hidden rounded-xl border border-[var(--color-border)] bg-[var(--color-surface)] ${cardSizeClasses[size]} text-left transition hover:-translate-y-0.5 hover:shadow-md ${hasAiSummary ? "border-[var(--color-primary)]/30" : ""
+          } ${isSelected ? "border-[var(--color-primary)] ring-2 ring-[var(--color-primary)]/20" : ""} ${isBoard ? "w-full" : ""}`}
       >
         {/* チェックボックス */}
         <div className={`absolute ${isSmall ? "left-1 top-1" : "left-2 top-2"} z-20`}>
@@ -1335,61 +1334,61 @@ supabase-thumbnail-migration.sql`;
           className="w-full cursor-pointer"
         >
           {/* サムネイル画像 */}
-          {!isSmall && 
-           visibleFields.thumbnail && 
-           cardPreview === "thumbnail" && (
-            <div
-              className="w-full relative group/thumbnail"
-              onClick={(e) => {
-                e.stopPropagation();
-                handleThumbnailClick(paper.id);
-              }}
-              onDragOver={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                e.currentTarget.classList.add("opacity-70", "border-2", "border-dashed", "border-[var(--color-primary)]");
-              }}
-              onDragLeave={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                e.currentTarget.classList.remove("opacity-70", "border-2", "border-dashed", "border-[var(--color-primary)]");
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                e.currentTarget.classList.remove("opacity-70", "border-2", "border-dashed", "border-[var(--color-primary)]");
-                
-                const file = e.dataTransfer.files[0];
-                if (file && file.type.startsWith("image/")) {
-                  handleThumbnailUpload(paper.id, file);
-                } else {
-                  alert("画像ファイルを選択してください");
-                }
-              }}
-            >
-              <img
-                src={
-                  thumbnailUrl ||
-                  `https://dummyimage.com/200x280/4F46E5/FFFFFF&text=${encodeURIComponent(
-                    paper.title.substring(0, 10)
-                  )}`
-                }
-                alt={paper.title}
-                className="h-32 w-full rounded-lg object-cover object-center cursor-pointer transition-opacity"
-                onError={(e) => {
-                  (
-                    e.target as HTMLImageElement
-                  ).src = `https://dummyimage.com/200x280/4F46E5/FFFFFF&text=Error`;
+          {!isSmall &&
+            visibleFields.thumbnail &&
+            cardPreview === "thumbnail" && (
+              <div
+                className="w-full relative group/thumbnail"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleThumbnailClick(paper.id);
                 }}
-              />
-              {/* ホバー時のオーバーレイ */}
-              <div className="absolute inset-0 bg-black/0 group-hover/thumbnail:bg-black/30 rounded-lg flex items-center justify-center opacity-0 group-hover/thumbnail:opacity-100 transition-opacity cursor-pointer">
-                <div className="text-white text-xs font-semibold bg-black/50 px-3 py-1 rounded">
-                  画像を変更
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  e.currentTarget.classList.add("opacity-70", "border-2", "border-dashed", "border-[var(--color-primary)]");
+                }}
+                onDragLeave={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  e.currentTarget.classList.remove("opacity-70", "border-2", "border-dashed", "border-[var(--color-primary)]");
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  e.currentTarget.classList.remove("opacity-70", "border-2", "border-dashed", "border-[var(--color-primary)]");
+
+                  const file = e.dataTransfer.files[0];
+                  if (file && file.type.startsWith("image/")) {
+                    handleThumbnailUpload(paper.id, file);
+                  } else {
+                    alert("画像ファイルを選択してください");
+                  }
+                }}
+              >
+                <img
+                  src={
+                    thumbnailUrl ||
+                    `https://dummyimage.com/200x280/4F46E5/FFFFFF&text=${encodeURIComponent(
+                      paper.title.substring(0, 10)
+                    )}`
+                  }
+                  alt={paper.title}
+                  className="h-32 w-full rounded-lg object-cover object-center cursor-pointer transition-opacity"
+                  onError={(e) => {
+                    (
+                      e.target as HTMLImageElement
+                    ).src = `https://dummyimage.com/200x280/4F46E5/FFFFFF&text=Error`;
+                  }}
+                />
+                {/* ホバー時のオーバーレイ */}
+                <div className="absolute inset-0 bg-black/0 group-hover/thumbnail:bg-black/30 rounded-lg flex items-center justify-center opacity-0 group-hover/thumbnail:opacity-100 transition-opacity cursor-pointer">
+                  <div className="text-white text-xs font-semibold bg-black/50 px-3 py-1 rounded">
+                    画像を変更
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
 
           {/* ジャーナルと年 - 表示項目設定に応じて */}
           {(visibleFields.venue || visibleFields.year) && (
@@ -1445,7 +1444,7 @@ supabase-thumbnail-migration.sql`;
             const aiSummary = (paper as any)?.aiSummary ?? (paper as any)?.ai_summary;
             const summaries = aiSummary?.summaries || {};
             const tldr = summaries.tldr;
-            
+
             if (tldr) {
               return (
                 <div className="rounded-lg border border-[var(--color-primary)]/30 bg-[var(--color-primary)]/10 p-3 mt-2">
@@ -1461,36 +1460,36 @@ supabase-thumbnail-migration.sql`;
             return null;
           })()}
 
-        <div className="flex flex-wrap gap-2 text-xs text-[var(--color-text-secondary)]">
-          <span>
-            引用数:{" "}
-            {(
-              (paper as any)?.citation_count ??
-              paper.citationCount ??
-              "不明"
-            ).toString()}
-          </span>
-          {(paper as any)?.created_at ?? (paper as any)?.createdAt ? (
+          <div className="flex flex-wrap gap-2 text-xs text-[var(--color-text-secondary)]">
             <span>
-              保存日:{" "}
-              {new Date(
-                ((paper as any)?.created_at ??
-                  (paper as any)?.createdAt) as string
-              ).toLocaleDateString("ja-JP")}
+              引用数:{" "}
+              {(
+                (paper as any)?.citation_count ??
+                paper.citationCount ??
+                "不明"
+              ).toString()}
             </span>
-          ) : null}
-          {hasPreview && (
-            <span className="rounded-full bg-[var(--color-border)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-text)]">
-              プレビュー可
+            {(paper as any)?.created_at ?? (paper as any)?.createdAt ? (
+              <span>
+                保存日:{" "}
+                {new Date(
+                  ((paper as any)?.created_at ??
+                    (paper as any)?.createdAt) as string
+                ).toLocaleDateString("ja-JP")}
+              </span>
+            ) : null}
+            {hasPreview && (
+              <span className="rounded-full bg-[var(--color-border)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-text)]">
+                プレビュー可
+              </span>
+            )}
+          </div>
+
+          {paper.url && (
+            <span className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-[var(--color-text-secondary)]">
+              外部リンクあり →
             </span>
           )}
-        </div>
-
-        {paper.url && (
-          <span className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-[var(--color-text-secondary)]">
-            外部リンクあり →
-          </span>
-        )}
         </div>
       </div>
     );
@@ -1501,10 +1500,10 @@ supabase-thumbnail-migration.sql`;
       prev.map((paper) =>
         paper.id === paperId
           ? {
-              ...paper,
-              aiSummary: insights,
-              aiSummaryUpdatedAt: new Date().toISOString(),
-            }
+            ...paper,
+            aiSummary: insights,
+            aiSummaryUpdatedAt: new Date().toISOString(),
+          }
           : paper
       )
     );
@@ -1541,7 +1540,7 @@ supabase-thumbnail-migration.sql`;
       if (selectedOnly && selectedPaperIds.size > 0) {
         paperIdsParam = `&paperIds=${Array.from(selectedPaperIds).join(",")}`;
       }
-      
+
       const response = await fetch(
         `/api/library/export?userId=${DEMO_USER_ID}&format=${format}${paperIdsParam}`
       );
@@ -1641,12 +1640,12 @@ supabase-thumbnail-migration.sql`;
           <div className="flex items-center justify-center gap-3">
             <div className="flex-shrink-0" style={{ filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1))', opacity: 0.15 }}>
               <svg width="80" height="80" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="16" cy="16" r="11" stroke="currentColor" strokeWidth="2" fill="none" className="text-[var(--color-text)]"/>
-                <path d="M12 10C12 10 14 9 16 9C18 9 20 10 20 10" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" fill="none" className="text-[var(--color-text)]"/>
-                <path d="M12 10Q12 13 12 16Q12 19 12 22" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" fill="none" className="text-[var(--color-text)]"/>
-                <path d="M20 10Q20 13 20 16Q20 19 20 22" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" fill="none" className="text-[var(--color-text)]"/>
-                <path d="M12 14Q16 13 20 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" fill="none" className="text-[var(--color-text)]"/>
-                <path d="M12 18Q16 17 20 18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" fill="none" className="text-[var(--color-text)]"/>
+                <circle cx="16" cy="16" r="11" stroke="currentColor" strokeWidth="2" fill="none" className="text-[var(--color-text)]" />
+                <path d="M12 10C12 10 14 9 16 9C18 9 20 10 20 10" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" fill="none" className="text-[var(--color-text)]" />
+                <path d="M12 10Q12 13 12 16Q12 19 12 22" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" fill="none" className="text-[var(--color-text)]" />
+                <path d="M20 10Q20 13 20 16Q20 19 20 22" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" fill="none" className="text-[var(--color-text)]" />
+                <path d="M12 14Q16 13 20 14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" fill="none" className="text-[var(--color-text)]" />
+                <path d="M12 18Q16 17 20 18" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" fill="none" className="text-[var(--color-text)]" />
               </svg>
             </div>
             {/* バージョン表示 */}
@@ -1772,11 +1771,10 @@ supabase-thumbnail-migration.sql`;
               </div>
               <button
                 onClick={() => setShowFilters(!showFilters)}
-                className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition ${
-                  showFilters
+                className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition ${showFilters
                     ? "bg-[var(--color-primary)]/20 text-[var(--color-primary)]"
                     : "bg-[var(--color-background)] text-[var(--color-text)] hover:bg-[var(--color-border)]"
-                }`}
+                  }`}
               >
                 <Filter className="h-4 w-4" />
                 フィルター
@@ -1878,11 +1876,11 @@ supabase-thumbnail-migration.sql`;
                         onChange={(e) =>
                           setSortBy(
                             e.target.value as
-                              | "createdAt"
-                              | "title"
-                              | "year"
-                              | "citationCount"
-                              | "venue"
+                            | "createdAt"
+                            | "title"
+                            | "year"
+                            | "citationCount"
+                            | "venue"
                           )
                         }
                         className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-2 text-sm text-[var(--color-text)] focus:border-[var(--color-primary)] focus:outline-none"
@@ -1921,11 +1919,10 @@ supabase-thumbnail-migration.sql`;
                         return (
                           <label
                             key={tag}
-                            className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium transition ${
-                              checked
+                            className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium transition ${checked
                                 ? "border-[var(--color-primary)]/30 bg-[var(--color-primary)]/20 text-[var(--color-primary)]"
                                 : "border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-secondary)] hover:bg-[var(--color-background)]"
-                            }`}
+                              }`}
                           >
                             <input
                               type="checkbox"
@@ -1965,10 +1962,10 @@ supabase-thumbnail-migration.sql`;
 
             {/* 検索結果の統計 */}
             {searchQuery ||
-            yearFilter ||
-            venueFilter ||
-            tagFilter.length > 0 ||
-            addedDateFilter !== "all" ? (
+              yearFilter ||
+              venueFilter ||
+              tagFilter.length > 0 ||
+              addedDateFilter !== "all" ? (
               <div className="text-sm text-[var(--color-text-secondary)]">
                 {filteredAndSortedPapers.length} 件の論文が見つかりました
                 {papers.length !== filteredAndSortedPapers.length && (
@@ -1985,21 +1982,19 @@ supabase-thumbnail-migration.sql`;
           <div className="flex gap-3">
             <button
               onClick={() => setTab("papers")}
-              className={`rounded-full px-4 py-2 text-sm font-medium transition ${
-                tab === "papers"
+              className={`rounded-full px-4 py-2 text-sm font-medium transition ${tab === "papers"
                   ? "bg-[var(--color-primary)] text-[var(--color-surface)]"
                   : "border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-secondary)] hover:bg-[var(--color-background)]"
-              }`}
+                }`}
             >
               論文 ({papers.length})
             </button>
             <button
               onClick={() => setTab("reviews")}
-              className={`rounded-full px-4 py-2 text-sm font-medium transition ${
-                tab === "reviews"
+              className={`rounded-full px-4 py-2 text-sm font-medium transition ${tab === "reviews"
                   ? "bg-[var(--color-primary)] text-[var(--color-surface)]"
                   : "border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-secondary)] hover:bg-[var(--color-background)]"
-              }`}
+                }`}
             >
               レビュー ({reviews.length})
             </button>
@@ -2012,33 +2007,30 @@ supabase-thumbnail-migration.sql`;
               <div className="flex rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-1">
                 <button
                   onClick={() => setViewMode("card")}
-                  className={`flex items-center gap-1 rounded px-3 py-1 text-xs font-medium transition ${
-                    viewMode === "card"
+                  className={`flex items-center gap-1 rounded px-3 py-1 text-xs font-medium transition ${viewMode === "card"
                       ? "bg-[var(--color-primary)] text-[var(--color-surface)]"
                       : "text-[var(--color-text-secondary)] hover:bg-[var(--color-background)]"
-                  }`}
+                    }`}
                 >
                   <LayoutGrid className="h-3 w-3" />
                   カード
                 </button>
                 <button
                   onClick={() => setViewMode("table")}
-                  className={`flex items-center gap-1 rounded px-3 py-1 text-xs font-medium transition ${
-                    viewMode === "table"
+                  className={`flex items-center gap-1 rounded px-3 py-1 text-xs font-medium transition ${viewMode === "table"
                       ? "bg-[var(--color-primary)] text-[var(--color-surface)]"
                       : "text-[var(--color-text-secondary)] hover:bg-[var(--color-background)]"
-                  }`}
+                    }`}
                 >
                   <List className="h-3 w-3" />
                   テーブル
                 </button>
                 <button
                   onClick={() => setViewMode("board")}
-                  className={`flex items-center gap-1 rounded px-3 py-1 text-xs font-medium transition ${
-                    viewMode === "board"
+                  className={`flex items-center gap-1 rounded px-3 py-1 text-xs font-medium transition ${viewMode === "board"
                       ? "bg-[var(--color-primary)] text-[var(--color-surface)]"
                       : "text-[var(--color-text-secondary)] hover:bg-[var(--color-background)]"
-                  }`}
+                    }`}
                 >
                   <Columns className="h-3 w-3" />
                   ボード
@@ -2091,33 +2083,30 @@ supabase-thumbnail-migration.sql`;
                   <div className="grid grid-cols-3 gap-2">
                     <button
                       onClick={() => setViewMode("card")}
-                      className={`flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition ${
-                        viewMode === "card"
+                      className={`flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition ${viewMode === "card"
                           ? "border-[var(--color-primary)] bg-[var(--color-primary)]/10"
                           : "border-[var(--color-border)] hover:bg-[var(--color-background)]"
-                      }`}
+                        }`}
                     >
                       <LayoutGrid className="h-6 w-6" />
                       <span className="text-xs font-medium">カード</span>
                     </button>
                     <button
                       onClick={() => setViewMode("table")}
-                      className={`flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition ${
-                        viewMode === "table"
+                      className={`flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition ${viewMode === "table"
                           ? "border-[var(--color-primary)] bg-[var(--color-primary)]/10"
                           : "border-[var(--color-border)] hover:bg-[var(--color-background)]"
-                      }`}
+                        }`}
                     >
                       <List className="h-6 w-6" />
                       <span className="text-xs font-medium">テーブル</span>
                     </button>
                     <button
                       onClick={() => setViewMode("board")}
-                      className={`flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition ${
-                        viewMode === "board"
+                      className={`flex flex-col items-center gap-2 rounded-lg border-2 p-4 transition ${viewMode === "board"
                           ? "border-[var(--color-primary)] bg-[var(--color-primary)]/10"
                           : "border-[var(--color-border)] hover:bg-[var(--color-background)]"
-                      }`}
+                        }`}
                     >
                       <Columns className="h-6 w-6" />
                       <span className="text-xs font-medium">ボード</span>
@@ -2130,7 +2119,7 @@ supabase-thumbnail-migration.sql`;
                   <h4 className="text-sm font-semibold text-[var(--color-text)] mb-3">
                     表示設定
                   </h4>
-                  
+
                   {/* ページアイコンを表示 */}
                   <div className="flex items-center justify-between">
                     <span className="text-sm text-[var(--color-text)]">ページアイコンを表示</span>
@@ -2195,7 +2184,7 @@ supabase-thumbnail-migration.sql`;
                     <h4 className="text-sm font-semibold text-[var(--color-text)] mb-3">
                       ボード設定
                     </h4>
-                    
+
                     {/* グループ化（必須） */}
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-[var(--color-text)] font-semibold">グループ化 *</span>
@@ -2433,7 +2422,7 @@ supabase-thumbnail-migration.sql`;
                     <h4 className="text-sm font-semibold text-[var(--color-text)] mb-3">
                       カード設定
                     </h4>
-                    
+
                     {/* カードサイズ */}
                     <div className="flex items-center justify-between">
                       <span className="text-sm text-[var(--color-text)]">カードサイズ</span>
@@ -2749,25 +2738,23 @@ supabase-thumbnail-migration.sql`;
 
             {/* ボードビュー */}
             {viewMode === "board" && (
-              <div className={`grid ${
-                cardSize === "xl"
+              <div className={`grid ${cardSize === "xl"
                   ? "grid-cols-1 gap-4"
                   : cardSize === "large"
-                  ? "grid-cols-2 gap-4"
-                  : cardSize === "small"
-                  ? "grid-cols-5 gap-0"
-                  : "grid-cols-3 gap-4"
-              } overflow-x-auto pb-4`}>
+                    ? "grid-cols-2 gap-4"
+                    : cardSize === "small"
+                      ? "grid-cols-5 gap-0"
+                      : "grid-cols-3 gap-4"
+                } overflow-x-auto pb-4`}>
                 {Object.entries(groupedPapers).map(([groupName, papers]) => (
-                  <div 
-                    key={groupName} 
-                    className={`${
-                      cardSize === "small" 
-                        ? "min-w-0 w-full" 
+                  <div
+                    key={groupName}
+                    className={`${cardSize === "small"
+                        ? "min-w-0 w-full"
                         : cardSize === "xl"
-                        ? "min-w-full"
-                        : "min-w-80"
-                    } flex-shrink-0 ${showColumnBackground ? "bg-[var(--color-background)] rounded-lg p-4" : ""} ${cardSize === "small" ? "border-r border-[var(--color-border)] last:border-r-0" : ""}`}
+                          ? "min-w-full"
+                          : "min-w-80"
+                      } flex-shrink-0 ${showColumnBackground ? "bg-[var(--color-background)] rounded-lg p-4" : ""} ${cardSize === "small" ? "border-r border-[var(--color-border)] last:border-r-0" : ""}`}
                   >
                     <div className="mb-3 flex items-center gap-2">
                       <Tag className="h-4 w-4 text-[var(--color-text-secondary)]" />
@@ -2880,11 +2867,10 @@ supabase-thumbnail-migration.sql`;
                           return (
                             <div
                               key={paper.id}
-                              className={`flex items-start gap-4 rounded-lg border p-4 ${
-                                hasLinks
+                              className={`flex items-start gap-4 rounded-lg border p-4 ${hasLinks
                                   ? "border-[var(--color-primary)]/50 bg-[var(--color-primary)]/10"
                                   : "border-[var(--color-border)] bg-[var(--color-surface)]"
-                              }`}
+                                }`}
                             >
                               <div className="flex-1">
                                 <div className="flex items-start gap-2 mb-2">
@@ -2982,10 +2968,10 @@ supabase-thumbnail-migration.sql`;
               setSelectedPaper((prev) =>
                 prev
                   ? {
-                      ...prev,
-                      aiSummary: insights,
-                      aiSummaryUpdatedAt: new Date().toISOString(),
-                    }
+                    ...prev,
+                    aiSummary: insights,
+                    aiSummaryUpdatedAt: new Date().toISOString(),
+                  }
                   : prev
               );
             }}
@@ -2994,50 +2980,50 @@ supabase-thumbnail-migration.sql`;
                 prev.map((paper) =>
                   paper.id === paperId
                     ? {
-                        ...paper,
-                        pdfUrl: payload.pdfUrl ?? (paper as any)?.pdfUrl ?? (paper as any)?.pdf_url ?? null,
-                        pdf_url: payload.pdfUrl ?? (paper as any)?.pdf_url ?? null,
-                        htmlUrl: payload.htmlUrl ?? (paper as any)?.htmlUrl ?? (paper as any)?.html_url ?? null,
-                        html_url: payload.htmlUrl ?? (paper as any)?.html_url ?? null,
-                        pdfStoragePath:
-                          payload.pdfStoragePath ??
-                          (paper as any)?.pdfStoragePath ??
-                          (paper as any)?.pdf_storage_path ??
-                          null,
-                        pdf_storage_path:
-                          payload.pdfStoragePath ??
-                          (paper as any)?.pdf_storage_path ??
-                          null,
-                        pdfFileName:
-                          payload.pdfFileName ??
-                          (paper as any)?.pdfFileName ??
-                          (paper as any)?.pdf_file_name ??
-                          null,
-                        pdf_file_name:
-                          payload.pdfFileName ??
-                          (paper as any)?.pdf_file_name ??
-                          null,
-                      }
+                      ...paper,
+                      pdfUrl: payload.pdfUrl ?? (paper as any)?.pdfUrl ?? (paper as any)?.pdf_url ?? null,
+                      pdf_url: payload.pdfUrl ?? (paper as any)?.pdf_url ?? null,
+                      htmlUrl: payload.htmlUrl ?? (paper as any)?.htmlUrl ?? (paper as any)?.html_url ?? null,
+                      html_url: payload.htmlUrl ?? (paper as any)?.html_url ?? null,
+                      pdfStoragePath:
+                        payload.pdfStoragePath ??
+                        (paper as any)?.pdfStoragePath ??
+                        (paper as any)?.pdf_storage_path ??
+                        null,
+                      pdf_storage_path:
+                        payload.pdfStoragePath ??
+                        (paper as any)?.pdf_storage_path ??
+                        null,
+                      pdfFileName:
+                        payload.pdfFileName ??
+                        (paper as any)?.pdfFileName ??
+                        (paper as any)?.pdf_file_name ??
+                        null,
+                      pdf_file_name:
+                        payload.pdfFileName ??
+                        (paper as any)?.pdf_file_name ??
+                        null,
+                    }
                     : paper
                 )
               );
               setSelectedPaper((prev) =>
                 prev && prev.id === paperId
                   ? {
-                      ...prev,
-                      pdfUrl: payload.pdfUrl ?? (prev as any)?.pdfUrl ?? (prev as any)?.pdf_url ?? null,
-                      htmlUrl: payload.htmlUrl ?? (prev as any)?.htmlUrl ?? (prev as any)?.html_url ?? null,
-                      pdfStoragePath:
-                        payload.pdfStoragePath ??
-                        (prev as any)?.pdfStoragePath ??
-                        (prev as any)?.pdf_storage_path ??
-                        null,
-                      pdfFileName:
-                        payload.pdfFileName ??
-                        (prev as any)?.pdfFileName ??
-                        (prev as any)?.pdf_file_name ??
-                        null,
-                    }
+                    ...prev,
+                    pdfUrl: payload.pdfUrl ?? (prev as any)?.pdfUrl ?? (prev as any)?.pdf_url ?? null,
+                    htmlUrl: payload.htmlUrl ?? (prev as any)?.htmlUrl ?? (prev as any)?.html_url ?? null,
+                    pdfStoragePath:
+                      payload.pdfStoragePath ??
+                      (prev as any)?.pdfStoragePath ??
+                      (prev as any)?.pdf_storage_path ??
+                      null,
+                    pdfFileName:
+                      payload.pdfFileName ??
+                      (prev as any)?.pdfFileName ??
+                      (prev as any)?.pdf_file_name ??
+                      null,
+                  }
                   : prev
               );
             }}

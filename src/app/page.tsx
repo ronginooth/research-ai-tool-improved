@@ -22,7 +22,7 @@ import {
   HelpCircle,
 } from "lucide-react";
 import Link from "next/link";
-import { getVersionString } from "@/lib/version";
+import { getVersionString } from "@/lib/app-version";
 import Header from "@/components/layout/Header";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";

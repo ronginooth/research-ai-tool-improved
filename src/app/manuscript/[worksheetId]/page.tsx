@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import Header from "@/components/layout/Header";
-import { getVersionString } from "@/lib/version";
+import { getVersionString } from "@/lib/app-version";
 import {
   MoreVertical,
   Plus,
@@ -1058,13 +1058,13 @@ export default function WorksheetDetailPage() {
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!isResizing) return;
-      
+
       const container = document.querySelector('[data-split-container]') as HTMLElement;
       if (!container) return;
-      
+
       const containerRect = container.getBoundingClientRect();
       const newLeftWidth = ((e.clientX - containerRect.left) / containerRect.width) * 100;
-      
+
       // 最小幅と最大幅を制限（20%〜80%）
       const clampedWidth = Math.max(20, Math.min(80, newLeftWidth));
       setLeftWidth(clampedWidth);
@@ -1483,7 +1483,7 @@ export default function WorksheetDetailPage() {
     <>
       <Header />
       <div className="container mx-auto px-4 py-8">
-                {/* 中央の陰影アイコン */}
+        {/* 中央の陰影アイコン */}
         <section className="mb-6">
           <div className="flex items-center justify-center gap-3">
             <div className="flex-shrink-0" style={{ filter: 'drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1))', opacity: 0.15 }}>
@@ -1648,38 +1648,37 @@ export default function WorksheetDetailPage() {
         {layoutMode === "single" ? (
           viewMode === "list" ? renderParagraphList() : renderDocumentView()
         ) : (
-          <div 
+          <div
             data-split-container
             className="flex relative"
-            style={{ 
+            style={{
               cursor: isResizing ? 'col-resize' : 'default',
               height: 'calc(100vh - 280px)',
               minHeight: 'calc(100vh - 280px)'
             }}
           >
             {/* 左側: パラグラフ一覧 */}
-            <div 
+            <div
               className="overflow-y-auto pr-2 border-r border-[var(--color-border)] h-full"
               style={{ width: `${leftWidth}%`, minWidth: '20%', maxWidth: '80%' }}
             >
               {renderParagraphList()}
             </div>
-            
+
             {/* リサイズハンドル */}
             <div
               onMouseDown={handleMouseDown}
-              className={`absolute top-0 bottom-0 w-1 bg-transparent hover:bg-[var(--color-primary)] cursor-col-resize transition-colors z-10 group ${
-                isResizing ? 'bg-[var(--color-primary)]' : ''
-              }`}
+              className={`absolute top-0 bottom-0 w-1 bg-transparent hover:bg-[var(--color-primary)] cursor-col-resize transition-colors z-10 group ${isResizing ? 'bg-[var(--color-primary)]' : ''
+                }`}
               style={{ left: `${leftWidth}%`, transform: 'translateX(-50%)' }}
               title="ドラッグして幅を調整"
             >
               {/* 視覚的なリサイズハンドル */}
               <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-1 h-12 bg-[var(--color-border)] group-hover:bg-[var(--color-primary)] rounded transition-colors" />
             </div>
-            
+
             {/* 右側: 論文ビュー */}
-            <div 
+            <div
               className="flex-1 h-full flex flex-col"
               style={{ minWidth: '20%', maxWidth: '80%' }}
             >
