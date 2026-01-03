@@ -113,7 +113,7 @@ const ALL_FEATURES = [
 function HomeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { user, signOut } = useAuth();
+  const { user, loading: authLoading, signOut } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
   const [sources, setSources] = useState<string[]>(["semantic_scholar", "pubmed"]); // デフォルトはSemantic ScholarとPubMed
   const [enableIntentConfirmation, setEnableIntentConfirmation] = useState(false); // デフォルトはOFF
@@ -495,8 +495,10 @@ function HomeContent() {
   // ライブラリの論文を取得
   useEffect(() => {
     const fetchLibrary = async () => {
+      if (authLoading || !user?.id) return;
+
       try {
-        const response = await fetch(`/api/library?userId=${DEMO_USER_ID}`);
+        const response = await fetch(`/api/library?userId=${user.id}`);
         const data = await response.json();
         if (response.ok && data.success) {
           setLibraryPapers(
