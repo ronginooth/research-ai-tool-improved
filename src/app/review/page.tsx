@@ -317,33 +317,30 @@ KIF6遺伝子多型は心血管リスクの重要な予測因子として注目�
                       <div className="flex rounded-lg border border-[var(--color-border)]">
                         <button
                           onClick={() => setViewMode("edit")}
-                          className={`flex items-center gap-1 px-3 py-1 text-xs font-medium transition-colors ${
-                            viewMode === "edit"
+                          className={`flex items-center gap-1 px-3 py-1 text-xs font-medium transition-colors ${viewMode === "edit"
                               ? "bg-[var(--color-background)] text-[var(--color-text)]"
                               : "text-[var(--color-text-secondary)] hover:bg-[var(--color-background)]"
-                          }`}
+                            }`}
                         >
                           <Edit3 className="h-3 w-3" />
                           編集
                         </button>
                         <button
                           onClick={() => setViewMode("preview")}
-                          className={`flex items-center gap-1 px-3 py-1 text-xs font-medium transition-colors ${
-                            viewMode === "preview"
+                          className={`flex items-center gap-1 px-3 py-1 text-xs font-medium transition-colors ${viewMode === "preview"
                               ? "bg-[var(--color-background)] text-[var(--color-text)]"
                               : "text-[var(--color-text-secondary)] hover:bg-[var(--color-background)]"
-                          }`}
+                            }`}
                         >
                           <Eye className="h-3 w-3" />
                           プレビュー
                         </button>
                         <button
                           onClick={() => setViewMode("split")}
-                          className={`flex items-center gap-1 px-3 py-1 text-xs font-medium transition-colors ${
-                            viewMode === "split"
+                          className={`flex items-center gap-1 px-3 py-1 text-xs font-medium transition-colors ${viewMode === "split"
                               ? "bg-[var(--color-background)] text-[var(--color-text)]"
                               : "text-[var(--color-text-secondary)] hover:bg-[var(--color-background)]"
-                          }`}
+                            }`}
                         >
                           <FileText className="h-3 w-3" />
                           分割
@@ -424,7 +421,7 @@ KIF6遺伝子多型は心血管リスクの重要な予測因子として注目�
                           <button
                             onClick={() => {
                               // 論文リストページに遷移（将来実装）
-                              toast.info("論文リスト表示機能は今後実装予定です");
+                              toast("論文リスト表示機能は今後実装予定です", { icon: "ℹ️" });
                             }}
                             className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 text-sm"
                           >
