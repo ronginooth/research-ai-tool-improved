@@ -144,6 +144,14 @@ function HomeContent() {
   const [useAdvancedSearch, setUseAdvancedSearch] = useState<boolean>(false);
   const [reviewOnly, setReviewOnly] = useState<boolean>(false); // Review論文のみ検索
 
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-[var(--color-background)] flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--color-primary)]"></div>
+      </div>
+    );
+  }
+
   // Gemini API使用状況
   const [geminiUsageStats, setGeminiUsageStats] = useState<{
     totalKeys: number;
